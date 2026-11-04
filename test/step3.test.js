@@ -145,7 +145,7 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
   const pg = (k) => execFileSync('pdftotext', ['-f', String(k), '-l', String(k), '-layout', pdfPath, '-']).toString();
   const texts = Array.from({ length: n }, (_, k) => pg(k + 1));
   const tr = texts.map((t, k) => (t.includes('MSF28-10') ? k + 1 : 0)).filter(Boolean);
-  check(n === 4 && tr.length === 2 && tr[0] === 3, `PDF has 4 pages: approval, site diagram, traceability + continuation (${n} pages, MSF28-10 on ${tr.join(', ')})`);
+  check(n === 5 && tr.length === 2 && tr[0] === 3 && texts[n - 1].includes('MSF28-11'), `PDF has 5 pages: approval, site diagram, traceability + continuation, quantities (${n} pages, MSF28-10 on ${tr.join(', ')})`);
   const [a, b] = tr;
   const p2 = texts[a - 1] || '', p3 = texts[b - 1] || '';
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'Fine, dry', 'AC14', '40 mm', 'D-1001', '36.4', '360.4', '805', 'MSF28-10 V1R5']) {

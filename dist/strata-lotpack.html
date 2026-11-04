@@ -183,7 +183,7 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .rows { display: flex; flex-direction: column; gap: 6px; }
 .trow { display: flex; gap: 6px; align-items: flex-end; }
 .trow .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.trow .cell input { min-height: 44px; padding: 6px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); width: 100%; }
+.trow .cell input:not([type=checkbox]):not([type=radio]) { min-height: 44px; padding: 6px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); width: 100%; }
 .trow .cell-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .trow.thead { align-items: flex-end; font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.2; }
 .w-xs { flex: 0 0 64px; } .w-s { flex: 1 1 80px; } .w-m { flex: 1.6 1 110px; } .w-l { flex: 2.4 1 150px; }
@@ -217,6 +217,15 @@ fieldset.legend legend { font-weight: 600; padding: 0 6px; }
 .block-set { display: flex; flex-direction: column; gap: 10px; }
 h4 { font-size: 15px; margin: 6px 0 0; }
 input.out { border-color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 12%, var(--bg)) !important; }
+
+/* Quantity & Placement items */
+.w-xl { flex: 3 1 220px; }
+.cell.desc { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cell.desc .fixed { font-weight: 600; }
+.cell.desc .cell { flex: 1 1 90px; }
+.choice.mini .chk { min-height: 36px; padding: 2px 10px; }
+input.is-calc { color: var(--muted); font-style: italic; }
+.items .trow { align-items: center; }
 
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
@@ -507,6 +516,7 @@ SOFTWARE.
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
     diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
     diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
+    quantities: { index: 5, pageNo: { cx: 398.2, baselineTop: 591.0, size: 10 } },
     dip: { index: 6, pageNo: { cx: 320, baselineTop: 829.6, size: 9 } },
     survey: { index: 7, pageNo: { cx: 320, baselineTop: 832.5, size: 9 } },
     traceability: { index: 1, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
@@ -658,6 +668,30 @@ SOFTWARE.
       rowTop0: 240.8, rowH: 13.16, rows: 40,
       completedBy: [109, 573, 776.0],
     },
+  };
+
+  // MSF28-11: header, two item tables (row tops), variations, comments, signatures
+  const QTY = {
+    header: [
+      ['client', 135, 424, 79.8], ['date', 568, 812, 79.8],
+      ['projectTitle', 135, 424, 93.0], ['jobNumber', 568, 812, 93.0],
+      ['suburb', 135, 424, 106.2], ['workDescription', 568, 812, 106.2],
+      ['supplyingPlant', 135, 424, 119.4], ['haulageKm', 568, 812, 119.4],
+    ],
+    cols: {
+      no: [28.8, 84.8], desc: [88, 424], unit: [427, 489.2], qtyDelivered: [489.7, 553.7], waste: [554.2, 616.9],
+      qtyUsed: [617.4, 690.1], m2Paved: [690.6, 752.3], profiledM2: [752.8, 814.8],
+    },
+    payTops: [152.3, 165.4, 178.6, 191.6, 204.8, 217.9, 231.1, 244.3, 257.4],
+    contractorTops: [294.4, 307.4, 320.6, 333.7, 346.9, 360.0, 373.2, 386.4, 399.5, 412.7],
+    // where the bracket content goes on the printed rows (row index -> [x0, x1])
+    payDetail: { 1: [200.5, 263.5], 2: [200.5, 263.5], 3: [200.5, 263.5], 4: [147, 200.5] },
+    contractorDetail: { 0: [98, 124.5], 1: [190.5, 232.5], 4: [238, 283], 5: [241.5, 283.5] },
+    estab: { crew: [181.7, 207.4], mtv: [238.0, 261.3], profiler: [301.0, 335.8], row: [152.9, 164.0] },
+    variations: [[36, 812, 450.5], [36, 812, 460.0]],
+    comments: [[145, 812, 474.6], [36, 812, 486.0]],
+    colas: { name: [162, 276, 532.8], sign: { x0: 342, x1: 688, top: 519.5, bottom: 535.4 }, date: [755, 812, 532.8] },
+    client: { name: [162, 276, 546.0], sign: { x0: 342, x1: 451, top: 536.6, bottom: 548.7 }, position: [529, 688, 546.0], date: [755, 812, 546.0] },
   };
 
   // MSF28-10: [x0, x1] of each column; tipTime also has the x of its printed ':'
@@ -934,6 +968,51 @@ SOFTWARE.
     w.text(rec.completedBy || shift.completedBy, ...L.completedBy, 10);
   }
 
+  async function drawQuantities(doc, page, fonts, job, shift) {
+    const w = writer(page, fonts);
+    const Q = SL.forms.quantities;
+    const q = Q.ensure(shift);
+    const hv = headerValues(job, shift, q);
+    const o = q.header || {};
+    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
+    const vals = {
+      ...hv,
+      workDescription: Q.workDescription(shift),
+      supplyingPlant: pick('supplyingPlant', job.supplyingPlant),
+      haulageKm: fmtNum(pick('haulageKm', job.haulageKm)),
+    };
+    QTY.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
+
+    const C = QTY.cols;
+    const drawList = (list, tops, rows, detailPos) => tops.forEach((top, i) => {
+      const v = Q.effective(job, shift, list, i);
+      const base = top + 9.6;
+      const t = (val, [x0, x1], align = 'center') => w.text(fmtNum(val), x0 + 2, x1 - 2, base, 9, { align });
+      t(v.no, C.no);
+      if (!rows[i].text) t(v.description, C.desc, 'left');
+      if (detailPos[i]) t(v.detail, detailPos[i]);
+      t(v.unit, C.unit);
+      ['qtyDelivered', 'waste', 'qtyUsed', 'm2Paved', 'profiledM2'].forEach((k) => t(v[k], C[k]));
+      if (rows[i].estab) v.estab.forEach((e) => QTY.estab[e] && w.circle([...QTY.estab[e], ...QTY.estab.row]));
+    });
+    drawList('pay', QTY.payTops, Q.PAY_ROWS, QTY.payDetail);
+    drawList('contractor', QTY.contractorTops, Q.CONTRACTOR_ROWS, QTY.contractorDetail);
+
+    w.lines(q.variations, QTY.variations, 9);
+    w.lines(q.comments, QTY.comments, 9);
+
+    const cs = q.colasSign, cl = q.clientSign;
+    w.text(cs.name, ...QTY.colas.name, 9.5);
+    const csImg = await embedSignature(doc, cs.signature);
+    if (csImg) w.image(csImg, QTY.colas.sign);
+    w.text(SL.schema.formatDate(cs.date), ...QTY.colas.date, 9.5);
+    w.text(cl.name, ...QTY.client.name, 9.5);
+    const clImg = await embedSignature(doc, cl.signature);
+    if (clImg) w.image(clImg, QTY.client.sign);
+    w.text(cl.position, ...QTY.client.position, 9.5);
+    w.text(SL.schema.formatDate(cl.date), ...QTY.client.date, 9.5);
+  }
+
   const recordPages = (shift, kind) => SL.forms[kind].records(shift)
     .map((rec) => ({ template: kind, draw: drawRecord, kind, rec }));
 
@@ -1015,6 +1094,7 @@ SOFTWARE.
       ...tracePages(shift),
       ...recordPages(shift, 'dip'),
       ...recordPages(shift, 'survey'),
+      { template: 'quantities', draw: drawQuantities },
     ];
   }
 
@@ -1064,7 +1144,7 @@ SOFTWARE.
     return `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}.pdf`;
   }
 
-  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, REC, TEMPLATES } };
+  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, REC, QTY, TEMPLATES } };
 })(window.SL = window.SL || {});
 </script>
   <script>/* ui/components.js */
@@ -1150,6 +1230,37 @@ SOFTWARE.
     return h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
   }
 
+  // Input that shows a computed value until something is typed (typed value kept in obj[key]).
+  // Returns the field; field.refresh() recomputes when other values change.
+  function computed(label, obj, key, compute, onChange, opts = {}) {
+    const id = `f${++fieldSeq}`;
+    const typed = () => obj[key] !== null && obj[key] !== undefined && obj[key] !== '';
+    const input = h('input', {
+      id, type: 'text', inputmode: opts.number ? 'decimal' : undefined, autocomplete: 'off', dataset: { key },
+    });
+    const tag = h('span', { class: 'local-tag' }, 'typed');
+    const show = () => {
+      if (!typed()) { const c = compute(); input.value = c === null || c === undefined ? '' : String(c); }
+      input.classList.toggle('is-calc', !typed());
+      tag.hidden = !typed();
+    };
+    input.value = typed() ? String(obj[key]) : '';
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      if (raw === '') obj[key] = null;
+      else if (opts.number) { const n = Number(raw.replace(',', '.')); obj[key] = Number.isFinite(n) ? n : raw; }
+      else obj[key] = raw;
+      tag.hidden = !typed();
+      input.classList.toggle('is-calc', !typed());
+      onChange();
+    });
+    input.addEventListener('blur', show);
+    show();
+    const el = h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
+    el.refresh = () => { if (document.activeElement !== input) show(); };
+    return el;
+  }
+
   // Large checkbox chip bound to a boolean obj[key]
   function check(label, obj, key, onChange, cls = '') {
     const input = h('input', { type: 'checkbox', checked: !!obj[key] });
@@ -1184,7 +1295,7 @@ SOFTWARE.
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
-  SL.ui = { h, field, button, headerField, check, multi, textarea, nowLocal };
+  SL.ui = { h, field, button, headerField, computed, check, multi, textarea, nowLocal };
 })(window.SL = window.SL || {});
 </script>
   <script>/* ui/canvas.js */
@@ -2355,6 +2466,204 @@ SOFTWARE.
   SL.forms = SL.forms || {};
   SL.forms.dip = make('dip');
   SL.forms.survey = make('survey');
+})(window.SL = window.SL || {});
+</script>
+  <script>/* forms/quantities.js */
+/* MSF28-11 — Quantity & Placement Agreement Sheet */
+(function (SL) {
+  'use strict';
+  const { h, field, headerField, computed, textarea, nowLocal } = SL.ui;
+
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const round3 = (n) => Math.round(n * 1000) / 1000;
+  const typed = (v) => v !== null && v !== undefined && v !== '';
+
+  // Printed rows of the sheet. text: fixed wording; detail: what goes in its brackets.
+  // A row without text is a free row (description typed).
+  const PAY_ROWS = [
+    { text: 'Establishment', estab: true },
+    { text: 'Supply, Deliver, Lay', detail: true, prefill: true },
+    { text: 'Supply, Deliver, Lay', detail: true },
+    { text: 'Supply, Deliver, Lay', detail: true },
+    { text: 'Tack Coat', detail: true },
+    {}, {}, {}, {},
+  ];
+  const CONTRACTOR_ROWS = [
+    { text: 'm Profiler Hire', detail: true, detailFirst: true },
+    { text: 'Profile Truck/s Hire', detail: true },
+    { text: 'Profiler- Cutting Teeth' },
+    { text: 'Traffic Control' },
+    { text: 'Establishment- Light Towers', detail: true },
+    { text: 'Establishment - VMS Boards', detail: true },
+    { text: 'Waiting Time' },
+    {}, {}, {},
+  ];
+  const ESTAB = [['crew', 'Crew'], ['mtv', 'MTV'], ['profiler', 'Profiler']];
+  const NUM_COLS = [['qtyDelivered', 'QTY Delivered'], ['waste', 'Waste'], ['qtyUsed', 'Qty Used/ Invoiced'], ['m2Paved', 'm² Paved'], ['profiledM2', 'Profiled (m²)']];
+
+  const blankItem = () => ({ no: '', description: '', detail: '', estab: [], unit: '', qtyDelivered: null, waste: null, qtyUsed: null, m2Paved: null, profiledM2: null });
+
+  function ensure(shift) {
+    const q = shift.quantities = shift.quantities || {};
+    q.header = q.header || {};
+    const fill = (list, n) => { list = list || []; while (list.length < n) list.push(blankItem()); return list.slice(0, n); };
+    q.payItems = fill(q.payItems, PAY_ROWS.length);
+    q.contractorItems = fill(q.contractorItems, CONTRACTOR_ROWS.length);
+    q.payItems.concat(q.contractorItems).forEach((it) => { it.estab = it.estab || []; });
+    if (q.workDescription === undefined) q.workDescription = null;
+    if (q.variations === undefined) q.variations = '';
+    if (q.comments === undefined) q.comments = '';
+    q.colasSign = q.colasSign || { name: '', signature: '', date: '' };
+    q.clientSign = q.clientSign || { name: '', signature: '', position: '', date: '' };
+    return q;
+  }
+
+  // Values shown when nothing is typed: first "Supply, Deliver, Lay" from the traceability,
+  // Qty Used = QTY Delivered − Waste
+  function effective(job, shift, list, i) {
+    const q = ensure(shift);
+    const items = list === 'pay' ? q.payItems : q.contractorItems;
+    const rows = list === 'pay' ? PAY_ROWS : CONTRACTOR_ROWS;
+    const it = items[i];
+    const def = {};
+    if (rows[i].prefill && SL.forms.traceability) {
+      const lv = SL.forms.traceability.lotValues(job, shift);
+      def.detail = shift.product || '';
+      def.unit = 't';
+      def.qtyDelivered = num(lv.qtyDelivered);
+      def.m2Paved = num(lv.m2Paved);
+    }
+    const v = {};
+    ['no', 'description', 'detail', 'unit', 'qtyDelivered', 'waste', 'm2Paved', 'profiledM2'].forEach((k) => {
+      v[k] = typed(it[k]) ? it[k] : (def[k] ?? (k === 'description' || k === 'detail' || k === 'unit' || k === 'no' ? '' : null));
+    });
+    const d = num(v.qtyDelivered), w = num(v.waste);
+    v.qtyUsed = typed(it.qtyUsed) ? it.qtyUsed : (d !== null && w !== null ? round3(d - w) : null);
+    v.estab = it.estab || [];
+    return v;
+  }
+
+  const WT_LABEL = { supplyLay: 'Supply & Lay', profileFill: 'Profile & Fill', keyOverlay: 'Key & Overlay', profilePatch: 'Profile & Patch', repairWorks: 'Repair Works', other: 'Other' };
+  const LY_LABEL = { base: 'Base', intermediate: 'Intermediate', wearing: 'Wearing', correction: 'Correction', other: 'Other' };
+  function workDescription(shift) {
+    const q = ensure(shift);
+    if (typed(q.workDescription)) return q.workDescription;
+    const wt = (shift.workType || []).map((k) => WT_LABEL[k]).filter(Boolean).join(', ');
+    const ly = (shift.layer || []).map((k) => LY_LABEL[k]).filter(Boolean).join(', ');
+    return [wt, ly].filter(Boolean).join(' – ');
+  }
+
+  function status(job, shift) {
+    const q = shift.quantities;
+    if (!q) return 'empty';
+    if (q.colasSign && q.colasSign.signature && q.clientSign && q.clientSign.signature) return 'complete';
+    const items = (q.payItems || []).concat(q.contractorItems || []);
+    const any = items.some((it) => ['no', 'description', 'detail', 'unit', 'qtyDelivered', 'waste', 'qtyUsed', 'm2Paved', 'profiledM2'].some((k) => typed(it[k])) || (it.estab || []).length)
+      || q.variations || q.comments || (q.colasSign && (q.colasSign.name || q.colasSign.signature)) || (q.clientSign && (q.clientSign.name || q.clientSign.signature));
+    return any ? 'progress' : 'empty';
+  }
+
+  function itemRow(job, shift, list, i, row, it, save, refreshAll) {
+    const cell = (el, w) => { el.className = `cell ${w}`; el.querySelector('label').className = 'cell-label'; return el; };
+    const eff = () => effective(job, shift, list, i);
+    const calc = (label, key, w, number = true) => {
+      const el = cell(computed(label, it, key, () => eff()[key], () => { save(); refreshAll(); }, { number }), w);
+      return el;
+    };
+    let desc;
+    if (row.text) {
+      const parts = [];
+      if (row.detail && row.detailFirst) parts.push(calc('Detail', 'detail', 'w-xs', false));
+      parts.push(h('span', { class: 'fixed' }, row.text));
+      if (row.detail && !row.detailFirst) parts.push(calc('Detail (in brackets)', 'detail', 'w-s', false));
+      if (row.estab) {
+        parts.push(h('div', { class: 'choice mini' }, ESTAB.map(([v, l]) => {
+          const input = h('input', { type: 'checkbox', checked: it.estab.includes(v) });
+          input.addEventListener('change', () => {
+            const s = new Set(it.estab);
+            if (input.checked) s.add(v); else s.delete(v);
+            it.estab = Array.from(s);
+            save();
+          });
+          return h('label', { class: 'chk' }, input, h('span', {}, l));
+        })));
+      }
+      desc = h('div', { class: 'cell w-xl desc' }, h('span', { class: 'cell-label' }, 'Description'), ...parts);
+    } else {
+      desc = cell(field('Description', it, 'description', save), 'w-xl');
+    }
+    return h('div', { class: 'trow' },
+      cell(field('Pay Item No', it, 'no', save), 'w-xs'),
+      desc,
+      calc('Unit', 'unit', 'w-xs', false),
+      ...NUM_COLS.map(([k, l]) => calc(l, k, 'w-s')));
+  }
+
+  function itemsTable(job, shift, list, title, save) {
+    const q = ensure(shift);
+    const items = list === 'pay' ? q.payItems : q.contractorItems;
+    const rows = list === 'pay' ? PAY_ROWS : CONTRACTOR_ROWS;
+    const box = h('div', { class: 'rows items' });
+    // Computed cells (class 'cell') recalculate when a value of the row changes
+    const refreshAll = () => box.querySelectorAll('.cell').forEach((f) => f.refresh && f.refresh());
+    box.append(
+      h('div', { class: 'trow thead', 'aria-hidden': 'true' },
+        h('div', { class: 'cell w-xs' }, 'Pay Item No'), h('div', { class: 'cell w-xl' }, title), h('div', { class: 'cell w-xs' }, 'Unit'),
+        NUM_COLS.map(([, l]) => h('div', { class: 'cell w-s' }, l))),
+      ...rows.map((row, i) => itemRow(job, shift, list, i, row, items[i], save, refreshAll)));
+    return box;
+  }
+
+  function signBlock(who, s, save, withPosition) {
+    const dt = field('Date', s, 'date', save, { type: 'date' });
+    const onSign = () => {
+      if (s.signature && !s.date) { s.date = nowLocal().slice(0, 10); dt.querySelector('input').value = s.date; }
+      save();
+    };
+    return h('div', { class: 'grid' },
+      field(`${who} Representative`, s, 'name', save),
+      withPosition ? field('Position', s, 'position', save) : null,
+      dt,
+      h('div', { class: 'field span-all' }, h('label', {}, 'Signature'), SL.canvas.signaturePad(s, 'signature', onSign, `${who} signature`)));
+  }
+
+  function render(job, shift, save) {
+    const q = ensure(shift);
+    return h('div', { class: 'sheet' },
+      h('section', { class: 'block' },
+        h('h3', {}, 'Header'),
+        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
+        h('div', { class: 'grid' },
+          headerField('Client', q, 'client', job.client, save),
+          headerField('Date', q, 'date', shift.date, save, { type: 'date' }),
+          headerField('Project Title', q, 'projectTitle', job.projectTitle, save),
+          headerField('Job Number', q, 'jobNumber', job.jobNumber, save),
+          headerField('Suburb', q, 'suburb', job.suburb, save),
+          computed('Work Description', q, 'workDescription', () => workDescription(shift), save),
+          headerField('Supplying Plant', q, 'supplyingPlant', job.supplyingPlant, save),
+          headerField('Haulage Distance (kms)', q, 'haulageKm', job.haulageKm, save, { inputmode: 'decimal', number: true }))),
+      h('section', { class: 'block' },
+        h('h3', {}, 'Pay items'),
+        h('p', { class: 'muted small' }, 'Grey values come from the traceability (first “Supply, Deliver, Lay”) or are calculated (Qty Used = QTY Delivered − Waste). Typing replaces them.'),
+        itemsTable(job, shift, 'pay', 'Pay Item Description', save)),
+      h('section', { class: 'block' },
+        h('h3', {}, 'Contractors items'),
+        itemsTable(job, shift, 'contractor', 'Contractors Item Description', save)),
+      h('section', { class: 'block' },
+        textarea('Variations (e.g. Handwork, Change in depth)', q, 'variations', save, 2),
+        textarea('Additional Comments', q, 'comments', save, 2)),
+      h('section', { class: 'block' },
+        h('h3', {}, 'COLAS Representative'),
+        h('p', { class: 'muted small' }, 'The below representatives agree & accept the measured quantities in the Quantity & Placement Agreement Sheet. Signing includes the acceptance of above products and services placed by COLAS.'),
+        signBlock('COLAS', q.colasSign, save, false)),
+      h('section', { class: 'block' },
+        h('h3', {}, 'Client Representative'),
+        signBlock('Client', q.clientSign, save, true)),
+    );
+  }
+
+  SL.forms = SL.forms || {};
+  SL.forms.quantities = { render, status, ensure, effective, workDescription, PAY_ROWS, CONTRACTOR_ROWS };
 })(window.SL = window.SL || {});
 </script>
   <script>/* app.js */

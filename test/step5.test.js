@@ -127,12 +127,12 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   const n = Number((info.match(/Pages:\s+(\d+)/) || [])[1]);
   const texts = Array.from({ length: n }, (_, k) => execFileSync('pdftotext', ['-f', String(k + 1), '-l', String(k + 1), '-layout', pdfPath, '-']).toString());
   const codes = texts.map((t) => (t.match(/MSF28-\d+/) || ['?'])[0]);
-  check(n === 5 && codes.join(',') === 'MSF28-6,MSF28-7,MSF28-10,MSF28-9,MSF28-12', `PDF order ${codes.join(', ')}`);
+  check(n === 6 && codes.join(',') === 'MSF28-6,MSF28-7,MSF28-10,MSF28-9,MSF28-12,MSF28-11', `PDF order ${codes.join(', ')}`);
   const dip = texts[3], sur = texts[4];
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'AC14 Class 320', 'Every 20 m', '1.2', '55', '40', '200', '50', '1.75', 'North', '3.5', '1000', '1020', '58', '2370', '52.5', 'Pierre L.']) {
     check(dip.includes(s), `Dip Record page contains “${s}”`);
   }
-  check(/Page\s+4\s+of\s+5/.test(dip) && /Page\s+5\s+of\s+5/.test(sur), 'Footers “Page 4 of 5” and “Page 5 of 5” (no number on the paper)');
+  check(/Page\s+4\s+of\s+6/.test(dip) && /Page\s+5\s+of\s+6/.test(sur), 'Footers “Page 4 of 6” and “Page 5 of 6” (no number on the paper)');
   for (const s of ['AC20', 'South', '3000', '64', 'Pierre L.']) check(sur.includes(s), `Survey Record page contains “${s}”`);
   for (const p of [4, 5]) execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', '-f', String(p), '-l', String(p), pdfPath, path.join(outDir, `step5-page${p}`)]);
 

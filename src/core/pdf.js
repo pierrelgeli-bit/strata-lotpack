@@ -14,6 +14,7 @@
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
     diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
     diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
+    quantities: { index: 5, pageNo: { cx: 398.2, baselineTop: 591.0, size: 10 } },
     dip: { index: 6, pageNo: { cx: 320, baselineTop: 829.6, size: 9 } },
     survey: { index: 7, pageNo: { cx: 320, baselineTop: 832.5, size: 9 } },
     traceability: { index: 1, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
@@ -165,6 +166,30 @@
       rowTop0: 240.8, rowH: 13.16, rows: 40,
       completedBy: [109, 573, 776.0],
     },
+  };
+
+  // MSF28-11: header, two item tables (row tops), variations, comments, signatures
+  const QTY = {
+    header: [
+      ['client', 135, 424, 79.8], ['date', 568, 812, 79.8],
+      ['projectTitle', 135, 424, 93.0], ['jobNumber', 568, 812, 93.0],
+      ['suburb', 135, 424, 106.2], ['workDescription', 568, 812, 106.2],
+      ['supplyingPlant', 135, 424, 119.4], ['haulageKm', 568, 812, 119.4],
+    ],
+    cols: {
+      no: [28.8, 84.8], desc: [88, 424], unit: [427, 489.2], qtyDelivered: [489.7, 553.7], waste: [554.2, 616.9],
+      qtyUsed: [617.4, 690.1], m2Paved: [690.6, 752.3], profiledM2: [752.8, 814.8],
+    },
+    payTops: [152.3, 165.4, 178.6, 191.6, 204.8, 217.9, 231.1, 244.3, 257.4],
+    contractorTops: [294.4, 307.4, 320.6, 333.7, 346.9, 360.0, 373.2, 386.4, 399.5, 412.7],
+    // where the bracket content goes on the printed rows (row index -> [x0, x1])
+    payDetail: { 1: [200.5, 263.5], 2: [200.5, 263.5], 3: [200.5, 263.5], 4: [147, 200.5] },
+    contractorDetail: { 0: [98, 124.5], 1: [190.5, 232.5], 4: [238, 283], 5: [241.5, 283.5] },
+    estab: { crew: [181.7, 207.4], mtv: [238.0, 261.3], profiler: [301.0, 335.8], row: [152.9, 164.0] },
+    variations: [[36, 812, 450.5], [36, 812, 460.0]],
+    comments: [[145, 812, 474.6], [36, 812, 486.0]],
+    colas: { name: [162, 276, 532.8], sign: { x0: 342, x1: 688, top: 519.5, bottom: 535.4 }, date: [755, 812, 532.8] },
+    client: { name: [162, 276, 546.0], sign: { x0: 342, x1: 451, top: 536.6, bottom: 548.7 }, position: [529, 688, 546.0], date: [755, 812, 546.0] },
   };
 
   // MSF28-10: [x0, x1] of each column; tipTime also has the x of its printed ':'
@@ -441,6 +466,51 @@
     w.text(rec.completedBy || shift.completedBy, ...L.completedBy, 10);
   }
 
+  async function drawQuantities(doc, page, fonts, job, shift) {
+    const w = writer(page, fonts);
+    const Q = SL.forms.quantities;
+    const q = Q.ensure(shift);
+    const hv = headerValues(job, shift, q);
+    const o = q.header || {};
+    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
+    const vals = {
+      ...hv,
+      workDescription: Q.workDescription(shift),
+      supplyingPlant: pick('supplyingPlant', job.supplyingPlant),
+      haulageKm: fmtNum(pick('haulageKm', job.haulageKm)),
+    };
+    QTY.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
+
+    const C = QTY.cols;
+    const drawList = (list, tops, rows, detailPos) => tops.forEach((top, i) => {
+      const v = Q.effective(job, shift, list, i);
+      const base = top + 9.6;
+      const t = (val, [x0, x1], align = 'center') => w.text(fmtNum(val), x0 + 2, x1 - 2, base, 9, { align });
+      t(v.no, C.no);
+      if (!rows[i].text) t(v.description, C.desc, 'left');
+      if (detailPos[i]) t(v.detail, detailPos[i]);
+      t(v.unit, C.unit);
+      ['qtyDelivered', 'waste', 'qtyUsed', 'm2Paved', 'profiledM2'].forEach((k) => t(v[k], C[k]));
+      if (rows[i].estab) v.estab.forEach((e) => QTY.estab[e] && w.circle([...QTY.estab[e], ...QTY.estab.row]));
+    });
+    drawList('pay', QTY.payTops, Q.PAY_ROWS, QTY.payDetail);
+    drawList('contractor', QTY.contractorTops, Q.CONTRACTOR_ROWS, QTY.contractorDetail);
+
+    w.lines(q.variations, QTY.variations, 9);
+    w.lines(q.comments, QTY.comments, 9);
+
+    const cs = q.colasSign, cl = q.clientSign;
+    w.text(cs.name, ...QTY.colas.name, 9.5);
+    const csImg = await embedSignature(doc, cs.signature);
+    if (csImg) w.image(csImg, QTY.colas.sign);
+    w.text(SL.schema.formatDate(cs.date), ...QTY.colas.date, 9.5);
+    w.text(cl.name, ...QTY.client.name, 9.5);
+    const clImg = await embedSignature(doc, cl.signature);
+    if (clImg) w.image(clImg, QTY.client.sign);
+    w.text(cl.position, ...QTY.client.position, 9.5);
+    w.text(SL.schema.formatDate(cl.date), ...QTY.client.date, 9.5);
+  }
+
   const recordPages = (shift, kind) => SL.forms[kind].records(shift)
     .map((rec) => ({ template: kind, draw: drawRecord, kind, rec }));
 
@@ -522,6 +592,7 @@
       ...tracePages(shift),
       ...recordPages(shift, 'dip'),
       ...recordPages(shift, 'survey'),
+      { template: 'quantities', draw: drawQuantities },
     ];
   }
 
@@ -571,5 +642,5 @@
     return `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}.pdf`;
   }
 
-  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, REC, TEMPLATES } };
+  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, REC, QTY, TEMPLATES } };
 })(window.SL = window.SL || {});

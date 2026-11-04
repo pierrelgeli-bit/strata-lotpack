@@ -24,7 +24,7 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 | MSF28-10 | V1R5 – 13/09/2024 | Asphalt Traceability | En-tête + météo + tack coat, une ligne par camion, relevés vent / température chaussée toutes les 2 h, lot summary, QA checklist. 23 lignes en page 1, pages de suite de 31 lignes |
 | MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite, 38 lignes par bloc (au-delà, nouvelle fiche). Optionnelle : ajoutée au lotpack à la demande |
 | MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client, 40 lignes par bloc (au-delà, nouvelle fiche). Optionnelle : ajoutée au lotpack à la demande |
-| MSF28-11 | V2R4 – 13/09/2024 | Quantity & Placement Agreement | Pay items, contractor items, quantités, waste, m², variations, signatures |
+| MSF28-11 | V2R4 – 13/09/2024 | Quantity & Placement Agreement | Pay items (9 lignes : 5 préimprimées + 4 libres), contractor items (10 lignes : 7 + 3), quantités, waste, m², variations, signatures |
 
 ## 3. Principes d'architecture
 
@@ -119,7 +119,7 @@ Détail des objets :
 - **traceability** : `tackRate {litres, m2}`, `tackBroken`, `surfaceClean`, `loads[] {no, docket, tonnes, progress, tipTime, temp, chStart, chEnd, run, width, comment}`, `envReadings[] {time, windKmh, pavementTemp}`, `lotSummary {qtyDelivered, qtyPaved, m2Paved, completedBy}`, `qa {tempsRecorded, dipsRecorded, labDiscussed}`.
 - **diagram** : `header`, `pages[] {strokes[], legends[2] {key, mix, layer, depth, area, tonnes}, completedBy}` (une entrée par page de dessin ; traits vectoriels `{c, w, p[[x, y]]}` en coordonnées relatives à la grille, de 0 à 1, redessinés tels quels dans le PDF ; la page 1 porte en plus l'en-tête ; chaque page ajoutée a ses propres légendes et son Completed By).
 - **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
-- **quantities** : `payItems[]`, `contractorItems[]` `{no, description, unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}`, `variations`, `comments`, signatures.
+- **quantities** : `header`, `workDescription`, `payItems[9]`, `contractorItems[10]` `{no, description, detail, estab[], unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}` (`detail` = contenu des parenthèses des lignes préimprimées, `estab` = Crew / MTV / Profiler entourés ; une valeur vide affiche le calcul ou le préremplissage), `variations`, `comments`, `colasSign {name, signature, date}`, `clientSign {name, signature, position, date}`.
 
 Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur.
 
@@ -132,7 +132,7 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 - Limites (température, vent, dips) saisies directement dans la fiche, pas de valeurs codées en dur. Traçabilité : traceability.limits {minLoadTemp, maxWind, minPavementTemp}, non imprimées ; tackBroken et surfaceClean valent yes, no ou vide (réponse entourée dans le PDF). Dip Record : chaque relevé brut (Left, Centre, Right) est comparé à Lower et Upper Dip Limit ; hors limites, avertissement et case surlignée, sans blocage ; le Compaction Factor est seulement reporté.
 - Avertissement tant que l'Approval to Proceed du poste n'est pas signé.
 - Une seule couche / un seul enrobé par fiche de traçabilité, sinon commentaire conseillé.
-- Lot summary : QTY Delivered et QTY Paved préremplis avec la somme des tonnes des camions (modifiables) ; m² paved saisi à la main.
+- Lot summary : QTY Delivered et QTY Paved préremplis avec la somme des tonnes des camions (modifiables) ; m² paved saisi à la main. Quantity & Placement : la 1re ligne Supply, Deliver, Lay est préremplie depuis la traçabilité (produit du poste, unité t, QTY Delivered et m² Paved du Lot Summary) ; Qty Used = QTY Delivered − Waste dès que les deux sont connus ; Work Description proposée à partir du type de travaux et de la couche ; toute valeur tapée remplace le calcul.
 
 ## 7. Interface
 

@@ -80,6 +80,37 @@
     return h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
   }
 
+  // Input that shows a computed value until something is typed (typed value kept in obj[key]).
+  // Returns the field; field.refresh() recomputes when other values change.
+  function computed(label, obj, key, compute, onChange, opts = {}) {
+    const id = `f${++fieldSeq}`;
+    const typed = () => obj[key] !== null && obj[key] !== undefined && obj[key] !== '';
+    const input = h('input', {
+      id, type: 'text', inputmode: opts.number ? 'decimal' : undefined, autocomplete: 'off', dataset: { key },
+    });
+    const tag = h('span', { class: 'local-tag' }, 'typed');
+    const show = () => {
+      if (!typed()) { const c = compute(); input.value = c === null || c === undefined ? '' : String(c); }
+      input.classList.toggle('is-calc', !typed());
+      tag.hidden = !typed();
+    };
+    input.value = typed() ? String(obj[key]) : '';
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      if (raw === '') obj[key] = null;
+      else if (opts.number) { const n = Number(raw.replace(',', '.')); obj[key] = Number.isFinite(n) ? n : raw; }
+      else obj[key] = raw;
+      tag.hidden = !typed();
+      input.classList.toggle('is-calc', !typed());
+      onChange();
+    });
+    input.addEventListener('blur', show);
+    show();
+    const el = h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
+    el.refresh = () => { if (document.activeElement !== input) show(); };
+    return el;
+  }
+
   // Large checkbox chip bound to a boolean obj[key]
   function check(label, obj, key, onChange, cls = '') {
     const input = h('input', { type: 'checkbox', checked: !!obj[key] });
@@ -114,5 +145,5 @@
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
-  SL.ui = { h, field, button, headerField, check, multi, textarea, nowLocal };
+  SL.ui = { h, field, button, headerField, computed, check, multi, textarea, nowLocal };
 })(window.SL = window.SL || {});

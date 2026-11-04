@@ -126,14 +126,14 @@ const strokesOf = (page, i) => page.evaluate(async (k) => (await SL.db.getAllJob
   await dl.saveAs(pdfPath);
   await page.getByRole('button', { name: 'Close' }).click();
   const info = execFileSync('pdfinfo', [pdfPath]).toString();
-  check(/Pages:\s+4\b/.test(info), 'PDF has 4 pages (approval, 2 diagram pages, traceability)');
+  check(/Pages:\s+5\b/.test(info), 'PDF has 5 pages (approval, 2 diagram pages, traceability, quantities)');
   const pg = (n) => execFileSync('pdftotext', ['-f', String(n), '-l', String(n), '-layout', pdfPath, '-']).toString();
   const p2 = pg(2), p3 = pg(3), p4 = pg(4);
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'Coffs Harbour', 'AC14', 'Wearing', '805', '76.5', 'AC10', 'Pierre L.', 'MSF28-7 V2R3']) {
     check(p2.includes(s), `Diagram page 1 contains “${s}”`);
   }
   check(p3.includes('AC20') && p3.includes('120') && p3.includes('Pierre L.') && p3.includes('MSF28-7 V2R3'), 'Added page has its own legend, Completed By and code MSF28-7');
-  check(/Page\s+2\s+of\s+4/.test(p2) && /Page\s+3\s+of\s+4/.test(p3) && /Page\s+4\s+of\s+4/.test(p4) && p4.includes('MSF28-10'), 'Order 6, 7, 7, 10 and footers Page X of 4');
+  check(/Page\s+2\s+of\s+5/.test(p2) && /Page\s+3\s+of\s+5/.test(p3) && /Page\s+4\s+of\s+5/.test(p4) && p4.includes('MSF28-10') && pg(5).includes('MSF28-11'), 'Order 6, 7, 7, 10, 11 and footers Page X of 5');
 
   // Strokes really drawn: coloured pixels inside the grid
   const ppm = path.join(outDir, 'step4-page2');
