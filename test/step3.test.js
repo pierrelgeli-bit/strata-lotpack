@@ -140,20 +140,24 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
   await page.getByRole('button', { name: 'Close' }).click();
 
   const info = execFileSync('pdfinfo', [pdfPath]).toString();
-  check(/Pages:\s+3\b/.test(info), 'PDF has 3 pages (approval + traceability + continuation)');
-  const p2 = execFileSync('pdftotext', ['-f', '2', '-l', '2', '-layout', pdfPath, '-']).toString();
-  const p3 = execFileSync('pdftotext', ['-f', '3', '-l', '3', '-layout', pdfPath, '-']).toString();
+  // Pack order 6, 7, 10: traceability pages are found by their MSF28-10 code, not a fixed number
+  const n = Number((info.match(/Pages:\s+(\d+)/) || [])[1]);
+  const pg = (k) => execFileSync('pdftotext', ['-f', String(k), '-l', String(k), '-layout', pdfPath, '-']).toString();
+  const texts = Array.from({ length: n }, (_, k) => pg(k + 1));
+  const tr = texts.map((t, k) => (t.includes('MSF28-10') ? k + 1 : 0)).filter(Boolean);
+  check(n === 4 && tr.length === 2 && tr[0] === 3, `PDF has 4 pages: approval, site diagram, traceability + continuation (${n} pages, MSF28-10 on ${tr.join(', ')})`);
+  const [a, b] = tr;
+  const p2 = texts[a - 1] || '', p3 = texts[b - 1] || '';
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'Fine, dry', 'AC14', '40 mm', 'D-1001', '36.4', '360.4', '805', 'MSF28-10 V1R5']) {
     check(p2.includes(s), `Traceability page contains “${s}”`);
   }
-  check(/Page\s+2\s+of\s+3/.test(p2), 'Traceability footer “Page 2 of 3”');
-  check(/Page\s+3\s+of\s+3/.test(p3), 'Continuation footer “Page 3 of 3”');
+  check(new RegExp(`Page\\s+${a}\\s+of\\s+${n}`).test(p2), `Traceability footer “Page ${a} of ${n}”`);
+  check(new RegExp(`Page\\s+${b}\\s+of\\s+${n}`).test(p3), `Continuation footer “Page ${b} of ${n}”`);
   check(p3.includes('D-1024') && p3.includes('D-1030') && p3.includes('Last truck') && !p3.includes('D-1023'), 'Rows 24–30 on the continuation page');
   check(p2.includes('D-1023') && !p2.includes('D-1024'), 'Rows 1–23 on the first page');
   check(/06:30\s+12/.test(p2) && /08:40\s+15/.test(p2), 'Readings printed with their time in the yellow columns');
-  const p1 = execFileSync('pdftotext', ['-f', '1', '-l', '1', '-layout', pdfPath, '-']).toString();
-  check(/Page\s+1\s+of\s+3/.test(p1), 'Approval footer “Page 1 of 3”');
-  for (const p of [2, 3]) execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', '-f', String(p), '-l', String(p), pdfPath, path.join(outDir, `step3-page${p}`)]);
+  check(new RegExp(`Page\\s+1\\s+of\\s+${n}`).test(texts[0]) && texts[0].includes('MSF28-6'), `Approval footer “Page 1 of ${n}”`);
+  for (const p of [a, b]) execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', '-f', String(p), '-l', String(p), pdfPath, path.join(outDir, `step3-page${p}`)]);
 
   // Phone: truck rows become cards, no horizontal scroll
   await page.setViewportSize({ width: 390, height: 844 });
