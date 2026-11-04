@@ -207,6 +207,10 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .sk-box { position: relative; width: min(100%, calc((100vh - 150px) * var(--ar))); width: min(100%, calc((100dvh - 150px) * var(--ar))); margin: 0 auto; border: 1px solid #8a929e; border-radius: 4px; background: #fff; overflow: hidden; }
 .sk-layer { position: absolute; inset: 0; width: 100%; height: 100%; }
 .sk-draw { touch-action: none; cursor: crosshair; }
+.sk-expand { position: absolute; top: 6px; right: 6px; z-index: 3; width: 44px; height: 44px; border-radius: 8px; border: 1px solid #8a929e; background: rgba(255,255,255,.92); color: #111; font-size: 22px; line-height: 1; cursor: pointer; }
+.sk.full { position: fixed; inset: 0; z-index: 200; background: var(--surface); padding: 8px 12px 12px; gap: 8px; overflow: hidden; }
+.sk.full .sk-tools { padding: 0; }
+html.sk-lock, html.sk-lock body { overflow: hidden; }
 .page-tabs { margin: 0; }
 .legends { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 12px; }
 fieldset.legend { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px 12px; margin: 0; }
@@ -681,19 +685,19 @@ SOFTWARE.
           course: { CC: [94.2, 110.1], IC: [140.0, 151.1], WC: [178.3, 196.7] }, length: [86, 118], depth: [173, 202],
           off: { l: [86, 118], c: [121, 170], r: [173, 202] }, direction: [86, 202],
           layer: { 1: [99.1, 105.3], 2: [142.6, 148.7], 3: [184.4, 190.6] }, run: [79, 105], width: [157, 202],
-          cols: { ch: [29.6, 77.0], l: [77.5, 106.9], c: [107.4, 129.7], r: [155.6, 203.2] },
+          cols: { ch: [29.6, 77.0], l: [77.5, 106.9], c: [107.4, 129.7], c2: [129.7, 155.2], r: [155.6, 203.2] },
         },
         {
           course: { CC: [281.0, 296.9], IC: [330.4, 341.5], WC: [369.4, 387.8] }, length: [270, 308], depth: [364, 393],
           off: { l: [270, 308], c: [310, 361], r: [364, 393] }, direction: [270, 393],
           layer: { 1: [286.0, 292.1], 2: [332.8, 338.9], 3: [375.5, 381.6] }, run: [271, 298], width: [347, 393],
-          cols: { ch: [214.8, 269.3], l: [269.8, 299.2], c: [299.6, 321.6], r: [346.0, 394.4] },
+          cols: { ch: [214.8, 269.3], l: [269.8, 299.2], c: [299.6, 321.6], c2: [321.6, 345.5], r: [346.0, 394.4] },
         },
         {
           course: { CC: [469.7, 485.6], IC: [512.0, 523.1], WC: [550.2, 568.6] }, length: [465, 490], depth: [545, 573],
           off: { l: [465, 490], c: [493, 542], r: [545, 573] }, direction: [465, 573],
           layer: { 1: [474.5, 480.6], 2: [514.6, 520.7], 3: [556.3, 562.5] }, run: [456, 480], width: [527, 573],
-          cols: { ch: [406.7, 451.4], l: [451.9, 481.1], c: [481.6, 505.0], r: [529.8, 575.0] },
+          cols: { ch: [406.7, 451.4], l: [451.9, 481.1], c: [481.6, 505.0], c2: [505.0, 529.3], r: [529.8, 575.0] },
         },
       ],
       rowTop0: 240.8, rowH: 13.16, rows: 40,
@@ -993,7 +997,7 @@ SOFTWARE.
       t(b.run, B.run, L.base.rw); t(b.width, B.width, L.base.rw);
       b.readings.slice(0, L.rows).forEach((rd, i) => {
         const base = L.rowTop0 + i * L.rowH + 9.5;
-        ['ch', 'l', 'c', 'r'].forEach((k) => t(rd[k], B.cols[k], base, 8));
+        ['ch', 'l', 'c', 'c2', 'r'].forEach((k) => B.cols[k] && t(rd[k], B.cols[k], base, 8));
       });
     });
     w.text(rec.completedBy || shift.completedBy, ...L.completedBy, 10);
@@ -1918,13 +1922,42 @@ SOFTWARE.
     requestAnimationFrame(resize);
     new ResizeObserver(() => resize()).observe(box);
 
-    return h('div', { class: 'sk' },
-      h('div', { class: 'sk-tools', role: 'toolbar', 'aria-label': 'Drawing tools' },
-        h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
-        h('div', { class: 'tgroup' }, tb.colors),
-        h('div', { class: 'tgroup' }, tb.widths),
-        h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear)),
-      box);
+    const tools = h('div', { class: 'sk-tools', role: 'toolbar', 'aria-label': 'Drawing tools' },
+      h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
+      h('div', { class: 'tgroup' }, tb.colors),
+      h('div', { class: 'tgroup' }, tb.widths),
+      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear));
+    const root = h('div', { class: 'sk' }, tools, box);
+
+    // Full screen: button in the top-right corner of the drawing area; same button (or Esc) to come back.
+    // Strokes are grid-relative, so they stay in place whatever the size.
+    const expand = h('button', { type: 'button', class: 'sk-expand' });
+    const setExpandLabel = (full) => {
+      expand.textContent = full ? '⤡' : '⤢';
+      expand.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen drawing');
+      expand.title = full ? 'Exit full screen' : 'Full screen drawing';
+    };
+    function fit() {
+      if (!root.classList.contains('full')) { box.style.width = ''; return; }
+      const cs = getComputedStyle(root);
+      const availW = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = window.innerHeight - tools.offsetHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - parseFloat(cs.rowGap || 0) - 2;
+      box.style.width = `${Math.floor(Math.max(120, Math.min(availW, availH * aspect)))}px`;
+    }
+    const onKey = (e) => { if (e.key === 'Escape') toggleFull(false); };
+    function toggleFull(on = !root.classList.contains('full')) {
+      root.classList.toggle('full', on);
+      document.documentElement.classList.toggle('sk-lock', on);
+      setExpandLabel(on);
+      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fit); }
+      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); }
+      fit();
+      if (!on) box.scrollIntoView({ block: 'nearest' });
+    }
+    expand.addEventListener('click', () => toggleFull());
+    setExpandLabel(false);
+    box.appendChild(expand);
+    return root;
   }
 
   SL.canvas = { signaturePad, sketchPad };
@@ -2668,18 +2701,20 @@ SOFTWARE.
             type: 'button', class: 'icon-btn', 'aria-label': `Delete reading CH ${rd.ch ?? i + 1}`, title: 'Delete reading',
             onclick: () => { b.readings.splice(i, 1); draw(); changed(); },
           }, '×');
-          return h('div', { class: 'trow' }, f('CH', 'ch'), f('Left', 'l'), f('Centre', 'c'), f('Right', 'r'), del);
+          // Survey: the printed Centre column has two cells -> Centre 1 / Centre 2
+          const centre = isDip ? [f('Centre', 'c')] : [f('Centre 1', 'c'), f('Centre 2', 'c2')];
+          return h('div', { class: 'trow' }, f('CH', 'ch'), f('Left', 'l'), ...centre, f('Right', 'r'), del);
         });
         const full = b.readings.length >= K.rows;
         box.replaceChildren(
           h('div', { class: 'trow thead', 'aria-hidden': 'true' },
-            ['CH', 'Left', 'Centre', 'Right'].map((t) => h('div', { class: 'cell w-s' }, t)), h('span', { class: 'icon-btn ghost' })),
+            (isDip ? ['CH', 'Left', 'Centre', 'Right'] : ['CH', 'Left', 'Centre 1', 'Centre 2', 'Right']).map((t) => h('div', { class: 'cell w-s' }, t)), h('span', { class: 'icon-btn ghost' })),
           ...(rows.length ? rows : [h('p', { class: 'empty' }, 'No reading yet.')]),
           h('div', { class: 'actions' },
             h('button', {
               type: 'button', class: 'btn', disabled: full,
               onclick: () => {
-                b.readings.push({ ch: null, l: null, c: null, r: null });
+                b.readings.push(isDip ? { ch: null, l: null, c: null, r: null } : { ch: null, l: null, c: null, c2: null, r: null });
                 draw();
                 changed();
                 const inputs = box.querySelectorAll('input[data-key=ch]');

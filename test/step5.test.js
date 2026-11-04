@@ -102,10 +102,11 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   await s2.locator('.field', { hasText: 'Course' }).getByText('IC', { exact: true }).click();
   await s2.locator('.field', { hasText: 'Layer' }).getByText('2', { exact: true }).click();
   await s2.getByLabel('Direction').fill('South');
-  for (const r of [['3000', '61', '62', '60'], ['3020', '63', '64', '62']]) {
+  check((await s2.locator('.trow.thead').innerText()).replace(/\s+/g, ' ').includes('Centre 1 Centre 2'), 'Survey: two Centre cells (Centre 1 / Centre 2)');
+  for (const r of [['3000', '61', '62', '60', '71'], ['3020', '63', '64', '62', '73']]) {
     await s2.getByRole('button', { name: 'Add reading' }).click();
     const row = s2.locator('.trow:not(.thead)').last();
-    for (const [k, v] of [['ch', r[0]], ['l', r[1]], ['c', r[2]], ['r', r[3]]]) await row.locator(`input[data-key=${k}]`).fill(v);
+    for (const [k, v] of [['ch', r[0]], ['l', r[1]], ['c', r[2]], ['c2', r[4]], ['r', r[3]]]) await row.locator(`input[data-key=${k}]`).fill(v);
   }
   await page.getByText('Saved').waitFor();
 
@@ -134,6 +135,7 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   }
   check(/Page\s+4\s+of\s+6/.test(dip) && /Page\s+5\s+of\s+6/.test(sur), 'Footers “Page 4 of 6” and “Page 5 of 6” (no number on the paper)');
   for (const s of ['AC20', 'South', '3000', '64', 'Pierre L.']) check(sur.includes(s), `Survey Record page contains “${s}”`);
+  check(/61\s+62\s+71\s+60/.test(sur) && /63\s+64\s+73\s+62/.test(sur), 'Survey PDF: Left, Centre 1, Centre 2, Right in their cells'); 
   for (const p of [4, 5]) execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', '-f', String(p), '-l', String(p), pdfPath, path.join(outDir, `step5-page${p}`)]);
 
   // Phone width

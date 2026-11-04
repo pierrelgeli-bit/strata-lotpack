@@ -332,13 +332,42 @@
     requestAnimationFrame(resize);
     new ResizeObserver(() => resize()).observe(box);
 
-    return h('div', { class: 'sk' },
-      h('div', { class: 'sk-tools', role: 'toolbar', 'aria-label': 'Drawing tools' },
-        h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
-        h('div', { class: 'tgroup' }, tb.colors),
-        h('div', { class: 'tgroup' }, tb.widths),
-        h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear)),
-      box);
+    const tools = h('div', { class: 'sk-tools', role: 'toolbar', 'aria-label': 'Drawing tools' },
+      h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
+      h('div', { class: 'tgroup' }, tb.colors),
+      h('div', { class: 'tgroup' }, tb.widths),
+      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear));
+    const root = h('div', { class: 'sk' }, tools, box);
+
+    // Full screen: button in the top-right corner of the drawing area; same button (or Esc) to come back.
+    // Strokes are grid-relative, so they stay in place whatever the size.
+    const expand = h('button', { type: 'button', class: 'sk-expand' });
+    const setExpandLabel = (full) => {
+      expand.textContent = full ? '⤡' : '⤢';
+      expand.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen drawing');
+      expand.title = full ? 'Exit full screen' : 'Full screen drawing';
+    };
+    function fit() {
+      if (!root.classList.contains('full')) { box.style.width = ''; return; }
+      const cs = getComputedStyle(root);
+      const availW = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = window.innerHeight - tools.offsetHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - parseFloat(cs.rowGap || 0) - 2;
+      box.style.width = `${Math.floor(Math.max(120, Math.min(availW, availH * aspect)))}px`;
+    }
+    const onKey = (e) => { if (e.key === 'Escape') toggleFull(false); };
+    function toggleFull(on = !root.classList.contains('full')) {
+      root.classList.toggle('full', on);
+      document.documentElement.classList.toggle('sk-lock', on);
+      setExpandLabel(on);
+      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fit); }
+      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); }
+      fit();
+      if (!on) box.scrollIntoView({ block: 'nearest' });
+    }
+    expand.addEventListener('click', () => toggleFull());
+    setExpandLabel(false);
+    box.appendChild(expand);
+    return root;
   }
 
   SL.canvas = { signaturePad, sketchPad };

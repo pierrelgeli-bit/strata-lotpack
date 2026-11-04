@@ -78,6 +78,24 @@ const strokesOf = (page, i) => page.evaluate(async (k) => (await SL.db.getAllJob
   check(await strokesOf(page, 0) === 3, 'Undo restores the erased stroke');
   await sheet.getByRole('button', { name: 'Pen', exact: true }).click();
 
+  // Full screen from the corner button, draw there, come back
+  const normal = await sheet.locator('.sk-box').boundingBox();
+  await sheet.getByRole('button', { name: 'Full screen drawing' }).click();
+  check(await page.locator('.sk.full').count() === 1, 'Corner button opens the drawing full screen');
+  const full = await page.locator('.sk.full .sk-box').boundingBox();
+  const vp = page.viewportSize();
+  check(full.height > normal.height + 50 && full.y + full.height <= vp.height + 1 && full.x >= 0 && full.x + full.width <= vp.width + 1, `Full screen area larger and inside the screen (${Math.round(normal.width)}×${Math.round(normal.height)} → ${Math.round(full.width)}×${Math.round(full.height)})`);
+  check(Math.abs(full.width / full.height - normal.width / normal.height) < 0.01, 'Same proportions as the printed grid');
+  await page.screenshot({ path: path.join(outDir, 'step4-fullscreen.png') });
+  await stroke(page, [[0.6, 0.6], [0.9, 0.9]]);
+  await page.getByText('Saved').waitFor();
+  check(await strokesOf(page, 0) === 4, 'Stroke drawn full screen saved');
+  await page.getByRole('button', { name: 'Exit full screen' }).click();
+  check(await page.locator('.sk.full').count() === 0 && Math.abs((await sheet.locator('.sk-box').boundingBox()).width - normal.width) < 2, 'Same button exits full screen');
+  await sheet.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.getByText('Saved').waitFor();
+  check(await strokesOf(page, 0) === 3, 'Undo works across the full screen switch');
+
   // Legends page 1
   const lg1 = sheet.locator('fieldset.legend').nth(0);
   await lg1.getByLabel('Key').fill('A');

@@ -118,7 +118,7 @@ Détail des objets :
 - **approval** : `checks` (plant, materials, surface, base, thickness, wind, underlying, pavementTemp + sous-cases), `comments`, `colasSign {name, signature, dateTime}`, `clientSign {name, signature, position, dateTime}`, `clientComments`.
 - **traceability** : `tackRate {litres, m2}`, `tackBroken`, `surfaceClean`, `loads[] {no, docket, tonnes, progress, tipTime, temp, chStart, chEnd, run, width, comment}`, `envReadings[] {time, windKmh, pavementTemp}`, `lotSummary {qtyDelivered, qtyPaved, m2Paved, completedBy}`, `qa {tempsRecorded, dipsRecorded, labDiscussed}`.
 - **diagram** : `header`, `pages[] {strokes[], legends[2] {key, mix, layer, depth, area, tonnes}, completedBy}` (une entrée par page de dessin ; traits vectoriels `{c, w, p[[x, y]]}` en coordonnées relatives à la grille, de 0 à 1, redessinés tels quels dans le PDF ; la page 1 porte en plus l'en-tête ; chaque page ajoutée a ses propres légendes et son Completed By).
-- **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
+- **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey) ; sur le Survey, chaque relevé a deux cases Centre (c et c2 : Centre 1 et Centre 2, comme les deux sous-cases du papier), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
 - **quantities** : `header`, `workDescription`, `payItems[9]`, `contractorItems[10]` `{no, description, detail, estab[], unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}` (`detail` = contenu des parenthèses des lignes préimprimées, `estab` = Crew / MTV / Profiler entourés ; une valeur vide affiche le calcul ou le préremplissage), `variations`, `comments`, `colasSign {name, signature, date}`, `clientSign {name, signature, position, date}`.
 
 Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur. La fusion se fait poste par poste (les détails du job à part) ; le rapport (ajouté, remplacé, conservé, heures à la seconde) s'affiche avant d'appliquer. Les réglages de l'appareil ne sont jamais écrasés ; les contacts sont fusionnés par adresse ; un fichier d'une version plus récente de l'app est refusé. Export complet depuis Settings, export d'un job depuis l'écran Job. Limite : une suppression n'est pas propagée (un poste supprimé sur un appareil revient si l'on importe un fichier qui le contient).
@@ -142,7 +142,7 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 - Grandes zones tactiles, clavier numérique pour les nombres.
 - Navigation : **Jobs → Shift → onglets par fiche → Finish & send**.
 - Indicateur de complétude par fiche (vide, en cours, complète).
-- **Croquis à main levée** au doigt ou au stylet, plusieurs couleurs, épaisseur, gomme, annuler / rétablir.
+- **Croquis à main levée** au doigt ou au stylet, plusieurs couleurs, épaisseur, gomme, annuler / rétablir. Bouton plein écran en haut à droite de la zone de dessin (même bouton ou Échap pour revenir) ; la zone garde les proportions de la grille imprimée.
 - Signatures sur écran (COLAS et client), acceptées par les clients.
 
 ## 8. Sorties et envoi
@@ -205,6 +205,6 @@ Regards,
 
 ## 11. Questions ouvertes
 
-1. Hébergement de l'app sur la tablette (adresse https ou fichier local) : à décider. Le partage de fichiers (Share to Outlook) n'est en général disponible qu'en https ; sans lui, l'app propose le brouillon mailto. Survey Record : usage des deux sous-cases de la colonne Centre des relevés, à préciser (la valeur est écrite pour l'instant dans la sous-case de gauche).
+1. Hébergement de l'app sur la tablette (adresse https ou fichier local) : à décider. Le partage de fichiers (Share to Outlook) n'est en général disponible qu'en https ; sans lui, l'app propose le brouillon mailto.
 
 Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires, chacune avec ses légendes ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8) ; PDF généré par pdf-lib sur le PDF officiel en fond, et joint automatiquement ; développement étape par étape, avec validation de PL entre chaque étape.

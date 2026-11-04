@@ -143,18 +143,20 @@
             type: 'button', class: 'icon-btn', 'aria-label': `Delete reading CH ${rd.ch ?? i + 1}`, title: 'Delete reading',
             onclick: () => { b.readings.splice(i, 1); draw(); changed(); },
           }, '×');
-          return h('div', { class: 'trow' }, f('CH', 'ch'), f('Left', 'l'), f('Centre', 'c'), f('Right', 'r'), del);
+          // Survey: the printed Centre column has two cells -> Centre 1 / Centre 2
+          const centre = isDip ? [f('Centre', 'c')] : [f('Centre 1', 'c'), f('Centre 2', 'c2')];
+          return h('div', { class: 'trow' }, f('CH', 'ch'), f('Left', 'l'), ...centre, f('Right', 'r'), del);
         });
         const full = b.readings.length >= K.rows;
         box.replaceChildren(
           h('div', { class: 'trow thead', 'aria-hidden': 'true' },
-            ['CH', 'Left', 'Centre', 'Right'].map((t) => h('div', { class: 'cell w-s' }, t)), h('span', { class: 'icon-btn ghost' })),
+            (isDip ? ['CH', 'Left', 'Centre', 'Right'] : ['CH', 'Left', 'Centre 1', 'Centre 2', 'Right']).map((t) => h('div', { class: 'cell w-s' }, t)), h('span', { class: 'icon-btn ghost' })),
           ...(rows.length ? rows : [h('p', { class: 'empty' }, 'No reading yet.')]),
           h('div', { class: 'actions' },
             h('button', {
               type: 'button', class: 'btn', disabled: full,
               onclick: () => {
-                b.readings.push({ ch: null, l: null, c: null, r: null });
+                b.readings.push(isDip ? { ch: null, l: null, c: null, r: null } : { ch: null, l: null, c: null, c2: null, r: null });
                 draw();
                 changed();
                 const inputs = box.querySelectorAll('input[data-key=ch]');
