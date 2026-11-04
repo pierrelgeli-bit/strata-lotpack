@@ -241,6 +241,15 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 15px; }
 table.hist th, table.hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
 @media (max-width: 640px) { table.hist { font-size: 13px; } }
 
+/* Import report */
+.import-report:empty { display: none; }
+.import-report { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; }
+.import-report.ok { border-color: var(--ok); }
+.import-report.err { border-color: var(--danger); color: var(--danger); }
+.import-summary { font-weight: 600; }
+tr.act-kept td { color: #b06d00; }
+tr.act-replaced td { color: var(--accent); }
+
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
 .sig-box { position: relative; background: #fff; border: 1px dashed #8a929e; border-radius: 8px; height: 160px; }

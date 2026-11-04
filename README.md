@@ -17,7 +17,7 @@ Assemble `src/` en un seul fichier `dist/strata-lotpack.html`.
 ## Tests
 
 ```bash
-node build/build.js && node test/step1.test.js && node test/step2.test.js && node test/step3.test.js && node test/step4.test.js && node test/step5.test.js && node test/step6.test.js && node test/step7.test.js
+node build/build.js && node test/step1.test.js && node test/step2.test.js && node test/step3.test.js && node test/step4.test.js && node test/step5.test.js && node test/step6.test.js && node test/step7.test.js && node test/step8.test.js
 ```
 
 Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Les PDF générés par les tests sont écrits dans `test/out/`.
@@ -43,4 +43,4 @@ qui écrit `src/assets/lotpack-template.pdf` (nécessite PyMuPDF). À relancer s
 | 5 | Dip Record + Survey Record | Fait |
 | 6 | Quantity & Placement | Fait |
 | 7 | PDF complet + Finish & send | Fait |
-| 8 | Export / import JSON | À faire |
+| 8 | Export / import JSON | Fait |

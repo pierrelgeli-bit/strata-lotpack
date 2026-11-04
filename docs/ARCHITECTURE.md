@@ -121,7 +121,7 @@ Détail des objets :
 - **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
 - **quantities** : `header`, `workDescription`, `payItems[9]`, `contractorItems[10]` `{no, description, detail, estab[], unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}` (`detail` = contenu des parenthèses des lignes préimprimées, `estab` = Crew / MTV / Profiler entourés ; une valeur vide affiche le calcul ou le préremplissage), `variations`, `comments`, `colasSign {name, signature, date}`, `clientSign {name, signature, position, date}`.
 
-Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur.
+Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur. La fusion se fait poste par poste (les détails du job à part) ; le rapport (ajouté, remplacé, conservé, heures à la seconde) s'affiche avant d'appliquer. Les réglages de l'appareil ne sont jamais écrasés ; les contacts sont fusionnés par adresse ; un fichier d'une version plus récente de l'app est refusé. Export complet depuis Settings, export d'un job depuis l'écran Job. Limite : une suppression n'est pas propagée (un poste supprimé sur un appareil revient si l'on importe un fichier qui le contient).
 
 ## 6. Règles métier
 

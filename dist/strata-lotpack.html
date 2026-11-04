@@ -249,6 +249,15 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 15px; }
 table.hist th, table.hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
 @media (max-width: 640px) { table.hist { font-size: 13px; } }
 
+/* Import report */
+.import-report:empty { display: none; }
+.import-report { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; }
+.import-report.ok { border-color: var(--ok); }
+.import-report.err { border-color: var(--danger); color: var(--danger); }
+.import-summary { font-weight: 600; }
+tr.act-kept td { color: #b06d00; }
+tr.act-replaced td { color: var(--accent); }
+
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
 .sig-box { position: relative; background: #fff; border: 1px dashed #8a929e; border-radius: 8px; height: 160px; }
@@ -1284,6 +1293,143 @@ SOFTWARE.
     recipientsText, logDraft, isoLocal,
     _open: (url) => { window.location.href = url; },
   };
+})(window.SL = window.SL || {});
+</script>
+  <script>/* core/io.js */
+/* JSON export / import with merge.
+   Merge by id, shift by shift: the version with the most recent updatedAt wins; the report lists
+   what was added, replaced and kept, so the user sees every conflict before applying.
+   Device settings (theme, default name, always CC) are never overwritten; contacts are merged by email. */
+(function (SL) {
+  'use strict';
+  const { SCHEMA_VERSION, migrateJob, formatDate } = SL.schema;
+
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const newer = (a, b) => String(a || '') > String(b || '');
+  const jobLabel = (j) => [j.jobNumber, j.projectTitle].filter(Boolean).join(' – ') || 'Untitled job';
+
+  async function exportAll() {
+    const [jobs, contacts, settings] = await Promise.all([SL.db.getAllJobs(), SL.db.getMeta('contacts'), SL.db.getMeta('settings')]);
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      app: 'strata-lotpack',
+      exportedAt: SL.mail.isoLocal(),
+      contacts: contacts || [],
+      settings: Object.assign(SL.schema.defaultSettings(), settings || {}),
+      jobs,
+    };
+  }
+
+  function exportJob(job) {
+    return { schemaVersion: SCHEMA_VERSION, app: 'strata-lotpack', exportedAt: SL.mail.isoLocal(), jobs: [job] };
+  }
+
+  // Throws a readable error when the file is not a Strata Lotpack export
+  function parse(text) {
+    let data;
+    try { data = JSON.parse(text); } catch (e) { throw new Error('This file is not valid JSON.'); }
+    if (!data || data.app !== 'strata-lotpack' || !Array.isArray(data.jobs)) throw new Error('This file is not a Strata Lotpack export.');
+    const v = Number(data.schemaVersion || 1);
+    if (v > SCHEMA_VERSION) throw new Error(`This file comes from a newer version of the app (schema ${v}); update the app first.`);
+    data.jobs = data.jobs.map((j) => {
+      if (!j || !j.id || !Array.isArray(j.shifts)) throw new Error('A job in this file is incomplete.');
+      // keep the object exactly as exported (key order included) so a round trip is lossless
+      const o = clone(j);
+      if (!o.schemaVersion) o.schemaVersion = v;
+      return migrateJob(o);
+    });
+    data.contacts = Array.isArray(data.contacts) ? data.contacts.filter((c) => c && c.email) : [];
+    return data;
+  }
+
+  // Compare local data with an imported file; nothing is written here
+  function plan(localJobs, localContacts, incoming) {
+    const byId = new Map(localJobs.map((j) => [j.id, j]));
+    const rows = [];        // report lines
+    const changed = [];     // jobs to write
+    const n = { jobsAdded: 0, shiftsAdded: 0, replaced: 0, kept: 0, unchanged: 0 };
+
+    incoming.jobs.forEach((inc) => {
+      const loc = byId.get(inc.id);
+      if (!loc) {
+        changed.push(clone(inc));
+        n.jobsAdded++; n.shiftsAdded += inc.shifts.length;
+        rows.push({ job: jobLabel(inc), what: `Job (${inc.shifts.length} shift${inc.shifts.length === 1 ? '' : 's'})`, action: 'added' });
+        return;
+      }
+      const merged = clone(loc);
+      let touched = false;
+      // Job details (everything but the shifts)
+      const { shifts: s1, ...locFields } = loc;
+      const { shifts: s2, ...incFields } = inc;
+      const strip = (o) => { const { updatedAt, schemaVersion, ...r } = o; return r; };
+      if (!same(strip(locFields), strip(incFields))) {
+        if (newer(inc.updatedAt, loc.updatedAt)) {
+          Object.assign(merged, clone(incFields), { shifts: merged.shifts });
+          touched = true; n.replaced++;
+          rows.push({ job: jobLabel(inc), what: 'Job details', action: 'replaced', local: loc.updatedAt, imported: inc.updatedAt });
+        } else {
+          n.kept++;
+          rows.push({ job: jobLabel(loc), what: 'Job details', action: 'kept', local: loc.updatedAt, imported: inc.updatedAt });
+        }
+      }
+      // Shifts, one by one
+      inc.shifts.forEach((is) => {
+        const k = merged.shifts.findIndex((x) => x.id === is.id);
+        const what = `Shift ${formatDate(is.date) || '(no date)'}`;
+        if (k < 0) {
+          merged.shifts.push(clone(is));
+          touched = true; n.shiftsAdded++;
+          rows.push({ job: jobLabel(merged), what, action: 'added' });
+          return;
+        }
+        const ls = merged.shifts[k];
+        if (same(ls, is)) { n.unchanged++; return; }
+        if (newer(is.updatedAt, ls.updatedAt)) {
+          merged.shifts[k] = clone(is);
+          touched = true; n.replaced++;
+          rows.push({ job: jobLabel(merged), what, action: 'replaced', local: ls.updatedAt, imported: is.updatedAt });
+        } else {
+          n.kept++;
+          rows.push({ job: jobLabel(merged), what, action: 'kept', local: ls.updatedAt, imported: is.updatedAt });
+        }
+      });
+      if (touched) {
+        if (newer(inc.updatedAt, merged.updatedAt)) merged.updatedAt = inc.updatedAt;
+        changed.push(merged);
+      }
+    });
+
+    // Contacts: union by email, most recent use kept
+    const contacts = clone(localContacts || []);
+    let contactsAdded = 0;
+    (incoming.contacts || []).forEach((c) => {
+      const mine = contacts.find((x) => x.email.toLowerCase() === c.email.toLowerCase());
+      if (!mine) { contacts.push(clone(c)); contactsAdded++; } else {
+        if (!mine.name && c.name) mine.name = c.name;
+        if (newer(c.lastUsed, mine.lastUsed)) mine.lastUsed = c.lastUsed;
+      }
+    });
+
+    return { rows, changed, contacts, counts: { ...n, contactsAdded }, nothingToDo: !changed.length && !contactsAdded };
+  }
+
+  async function apply(p) {
+    for (const job of p.changed) await SL.db.putJob(job);
+    await SL.db.putMeta('contacts', p.contacts);
+  }
+
+  function download(data, name) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  SL.io = { exportAll, exportJob, parse, plan, apply, download, jobLabel };
 })(window.SL = window.SL || {});
 </script>
   <script>/* ui/components.js */
@@ -2943,7 +3089,14 @@ SOFTWARE.
                 h('td', {}, (e.to || []).join('; ')), h('td', {}, (e.cc || []).join('; '))))))
             : h('p', { class: 'muted' }, 'No lotpack emailed yet.');
         })()),
-      h('div', { class: 'actions' }, button('Delete job', delJob, 'danger')),
+      h('div', { class: 'actions' },
+        button('Export job (JSON)', async () => {
+          await SL.db.flush();
+          const fresh = await SL.db.getJob(job.id);
+          const safe = (x) => String(x || '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+          SL.io.download(SL.io.exportJob(fresh), `Strata-Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${SL.schema.todayIso()}.json`);
+        }),
+        button('Delete job', delJob, 'danger')),
     );
   }
 
@@ -2960,6 +3113,14 @@ SOFTWARE.
   const allWarnings = (job, shift) => Object.values(SL.forms || {})
     .flatMap((f) => [].concat(f.warning ? f.warning(job, shift) : [])).filter(Boolean);
   const fmtStamp = (iso) => (iso ? `${formatDate(iso.slice(0, 10))} ${iso.slice(11, 16)}` : '');
+  // Local time with seconds (import report: two versions can differ by a few seconds)
+  const fmtStampSec = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
   const lastSent = (shift) => (shift.sendLog || []).filter((e) => e && e.sentAt).slice(-1)[0];
 
   async function renderShift(jobId, shiftId) {
@@ -3263,7 +3424,63 @@ SOFTWARE.
         h('div', { class: 'grid' }, field('Always in CC (one or more addresses, separated by ;)', s, 'alwaysCc', saveSettings, { inputmode: 'email' })),
         h('h3', {}, 'Address book'),
         addressBook()),
+      dataSection(),
     );
+  }
+
+  // Export everything / import a file: report first, then apply
+  function dataSection() {
+    const out = h('div', { class: 'import-report', role: 'status' });
+    const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
+    const today = SL.schema.todayIso();
+    const exportAll = async () => {
+      await SL.db.flush();
+      SL.io.download(await SL.io.exportAll(), `Strata-Lotpack_export_${today}.json`);
+    };
+    const LABEL = { added: 'Added', replaced: 'Replaced by the imported version (newer)', kept: 'Kept this device version (newer)' };
+    fileInput.addEventListener('change', async () => {
+      const f = fileInput.files[0];
+      fileInput.value = '';
+      if (!f) return;
+      let data, p;
+      try {
+        data = SL.io.parse(await f.text());
+        await SL.db.flush();
+        p = SL.io.plan(await SL.db.getAllJobs(), state.contacts, data);
+      } catch (e) {
+        out.className = 'import-report err';
+        out.replaceChildren(h('strong', {}, 'Import refused: '), e.message);
+        return;
+      }
+      const c = p.counts;
+      const summary = `${c.jobsAdded} job(s) added, ${c.shiftsAdded} shift(s) added, ${c.replaced} replaced, ${c.kept} kept, ${c.unchanged} unchanged, ${c.contactsAdded} contact(s) added.`;
+      out.className = 'import-report';
+      out.replaceChildren(
+        h('p', {}, h('strong', {}, f.name), ` — exported ${data.exportedAt ? SL.schema.formatDate(String(data.exportedAt).slice(0, 10)) + ' ' + String(data.exportedAt).slice(11, 16) : ''}`),
+        h('p', { class: 'import-summary' }, summary),
+        p.rows.length ? h('table', { class: 'hist' },
+          h('thead', {}, h('tr', {}, ['Job', 'Item', 'Result', 'This device', 'Imported'].map((t) => h('th', {}, t)))),
+          h('tbody', {}, p.rows.map((r) => h('tr', { class: `act-${r.action}` },
+            h('td', {}, r.job), h('td', {}, r.what), h('td', {}, LABEL[r.action]),
+            h('td', {}, fmtStampSec(r.local)), h('td', {}, fmtStampSec(r.imported)))))) : null,
+        p.nothingToDo
+          ? h('p', { class: 'muted' }, 'Nothing to apply: this device already has the same or newer data.')
+          : h('div', { class: 'actions' },
+            button('Apply import', async () => {
+              await SL.io.apply(p);
+              state.contacts = p.contacts;
+              out.className = 'import-report ok';
+              out.replaceChildren(h('strong', {}, 'Import done. '), summary);
+            }, 'primary'),
+            button('Cancel', () => { out.className = 'import-report'; out.replaceChildren(); })),
+      );
+    });
+    return h('section', { class: 'panel' },
+      h('h2', {}, 'Data'),
+      h('p', { class: 'muted small' }, 'Export all jobs to a JSON file (backup, or to open them on another device). Import merges by id: for each shift the most recent version wins; you see the report before applying. Settings of this device are not changed by an import.'),
+      h('div', { class: 'actions' }, button('Export all data (JSON)', exportAll), button('Import JSON…', () => fileInput.click())),
+      fileInput,
+      out);
   }
 
   function addressBook() {

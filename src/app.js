@@ -135,7 +135,14 @@
                 h('td', {}, (e.to || []).join('; ')), h('td', {}, (e.cc || []).join('; '))))))
             : h('p', { class: 'muted' }, 'No lotpack emailed yet.');
         })()),
-      h('div', { class: 'actions' }, button('Delete job', delJob, 'danger')),
+      h('div', { class: 'actions' },
+        button('Export job (JSON)', async () => {
+          await SL.db.flush();
+          const fresh = await SL.db.getJob(job.id);
+          const safe = (x) => String(x || '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+          SL.io.download(SL.io.exportJob(fresh), `Strata-Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${SL.schema.todayIso()}.json`);
+        }),
+        button('Delete job', delJob, 'danger')),
     );
   }
 
@@ -152,6 +159,14 @@
   const allWarnings = (job, shift) => Object.values(SL.forms || {})
     .flatMap((f) => [].concat(f.warning ? f.warning(job, shift) : [])).filter(Boolean);
   const fmtStamp = (iso) => (iso ? `${formatDate(iso.slice(0, 10))} ${iso.slice(11, 16)}` : '');
+  // Local time with seconds (import report: two versions can differ by a few seconds)
+  const fmtStampSec = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
   const lastSent = (shift) => (shift.sendLog || []).filter((e) => e && e.sentAt).slice(-1)[0];
 
   async function renderShift(jobId, shiftId) {
@@ -455,7 +470,63 @@
         h('div', { class: 'grid' }, field('Always in CC (one or more addresses, separated by ;)', s, 'alwaysCc', saveSettings, { inputmode: 'email' })),
         h('h3', {}, 'Address book'),
         addressBook()),
+      dataSection(),
     );
+  }
+
+  // Export everything / import a file: report first, then apply
+  function dataSection() {
+    const out = h('div', { class: 'import-report', role: 'status' });
+    const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
+    const today = SL.schema.todayIso();
+    const exportAll = async () => {
+      await SL.db.flush();
+      SL.io.download(await SL.io.exportAll(), `Strata-Lotpack_export_${today}.json`);
+    };
+    const LABEL = { added: 'Added', replaced: 'Replaced by the imported version (newer)', kept: 'Kept this device version (newer)' };
+    fileInput.addEventListener('change', async () => {
+      const f = fileInput.files[0];
+      fileInput.value = '';
+      if (!f) return;
+      let data, p;
+      try {
+        data = SL.io.parse(await f.text());
+        await SL.db.flush();
+        p = SL.io.plan(await SL.db.getAllJobs(), state.contacts, data);
+      } catch (e) {
+        out.className = 'import-report err';
+        out.replaceChildren(h('strong', {}, 'Import refused: '), e.message);
+        return;
+      }
+      const c = p.counts;
+      const summary = `${c.jobsAdded} job(s) added, ${c.shiftsAdded} shift(s) added, ${c.replaced} replaced, ${c.kept} kept, ${c.unchanged} unchanged, ${c.contactsAdded} contact(s) added.`;
+      out.className = 'import-report';
+      out.replaceChildren(
+        h('p', {}, h('strong', {}, f.name), ` — exported ${data.exportedAt ? SL.schema.formatDate(String(data.exportedAt).slice(0, 10)) + ' ' + String(data.exportedAt).slice(11, 16) : ''}`),
+        h('p', { class: 'import-summary' }, summary),
+        p.rows.length ? h('table', { class: 'hist' },
+          h('thead', {}, h('tr', {}, ['Job', 'Item', 'Result', 'This device', 'Imported'].map((t) => h('th', {}, t)))),
+          h('tbody', {}, p.rows.map((r) => h('tr', { class: `act-${r.action}` },
+            h('td', {}, r.job), h('td', {}, r.what), h('td', {}, LABEL[r.action]),
+            h('td', {}, fmtStampSec(r.local)), h('td', {}, fmtStampSec(r.imported)))))) : null,
+        p.nothingToDo
+          ? h('p', { class: 'muted' }, 'Nothing to apply: this device already has the same or newer data.')
+          : h('div', { class: 'actions' },
+            button('Apply import', async () => {
+              await SL.io.apply(p);
+              state.contacts = p.contacts;
+              out.className = 'import-report ok';
+              out.replaceChildren(h('strong', {}, 'Import done. '), summary);
+            }, 'primary'),
+            button('Cancel', () => { out.className = 'import-report'; out.replaceChildren(); })),
+      );
+    });
+    return h('section', { class: 'panel' },
+      h('h2', {}, 'Data'),
+      h('p', { class: 'muted small' }, 'Export all jobs to a JSON file (backup, or to open them on another device). Import merges by id: for each shift the most recent version wins; you see the report before applying. Settings of this device are not changed by an import.'),
+      h('div', { class: 'actions' }, button('Export all data (JSON)', exportAll), button('Import JSON…', () => fileInput.click())),
+      fileInput,
+      out);
   }
 
   function addressBook() {
