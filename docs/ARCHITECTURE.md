@@ -143,11 +143,28 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 2. Génération du PDF via `print.css` : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires portent le code MSF28-7, alors que le papier indique à tort MSF28-12). Ordre des fiches dans le PDF : MSF28-6 Approval, MSF28-7 Site Diagram (+ pages de dessin), MSF28-10 Traceability (+ pages de suite), MSF28-9 Dip Record, MSF28-12 Survey Record, MSF28-11 Quantity & Placement ; une fiche optionnelle non ajoutée est simplement absente.
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
-5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – Job – Date`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
+5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du jour>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
    - Tablette / téléphone : Web Share API avec fichiers → choix de l'app Outlook → brouillon avec PDF + JSON joints.
    - Si le partage de fichiers n'est pas disponible (ordinateur) : téléchargement du PDF + JSON, puis ouverture d'un brouillon `mailto` prérempli ; les fichiers sont joints à la main (limite technique des liens mailto).
    - Hors connexion : le brouillon est créé quand même ; il part de la boîte d'envoi dès que le réseau revient.
 6. **Historique d'envoi** dans chaque shift et chaque job : expéditeur, destinataires, CC, date et heure de création du brouillon.
+
+**Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet porte la date du jour de création du brouillon, le corps la date du poste. Un champ vide est simplement omis.
+
+```text
+Subject: Lotpack – {today}
+
+Hi,
+
+Please find attached the lot pack for {projectTitle} – {shiftDate}.
+
+Attachments:
+- {pdfFileName}
+- {jsonFileName}
+
+Regards,
+{completedBy}
+```
 
 **Onglet Settings** : carnet d'adresses (ajouter, modifier, supprimer des contacts nom + email), derniers destinataires mémorisés, **adresse toujours en copie**, thème jour / nuit, nom par défaut du rédacteur.
 
@@ -180,6 +197,6 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 
 ## 11. Questions ouvertes
 
-1. Aucune question bloquante. À confirmer pendant le développement : le format exact de l'objet et du corps du mail.
+1. Aucune question ouverte.
 
-Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11.
+Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8).
