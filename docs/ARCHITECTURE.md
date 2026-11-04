@@ -106,7 +106,7 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
       "surveys": [],
       "quantities": {},
       "completedBy": "",
-      "sendLog": [{ "sentBy": "", "to": [], "sentAt": null }],
+      "sendLog": [{ "sentBy": "", "to": [], "cc": [], "sentAt": null, "method": "share", "files": [] }],
       "status": "draft"
     }]
   }]
@@ -152,10 +152,10 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
 5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du lotpack>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
-   - Tablette / téléphone : Web Share API avec fichiers → choix de l'app Outlook → brouillon avec PDF + JSON joints.
+   - Tablette / téléphone : bouton « Share to Outlook » (Web Share API avec fichiers) → choix de l'app Outlook → brouillon avec PDF + JSON joints, objet et corps transmis. Le partage ne transmet pas les destinataires : les adresses To / CC sont copiées dans le presse-papiers, à coller dans le brouillon. Le bouton « Email draft (attach manually) » reste proposé en second choix. Le PDF est construit à l'ouverture de l'écran, pour que le partage parte dès le toucher.
    - Si le partage de fichiers n'est pas disponible (ordinateur) : téléchargement du PDF + JSON, puis ouverture d'un brouillon `mailto` prérempli ; les fichiers sont joints à la main (limite technique des liens mailto).
    - Hors connexion : le brouillon est créé quand même ; il part de la boîte d'envoi dès que le réseau revient.
-6. **Historique d'envoi** dans chaque shift et chaque job : expéditeur, destinataires, CC, date et heure de création du brouillon.
+6. **Historique d'envoi** dans chaque shift et chaque job : expéditeur, destinataires, CC, date et heure de création du brouillon, moyen utilisé (partage ou brouillon mailto) ; le poste passe au statut sent. Un partage annulé n'est pas enregistré.
 
 **Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet et le corps portent la date saisie dans le lotpack (date du poste), qui est le plus souvent le jour de l'envoi. Un champ vide est simplement omis.
 
@@ -205,6 +205,6 @@ Regards,
 
 ## 11. Questions ouvertes
 
-1. Aucune question ouverte.
+1. Hébergement de l'app sur la tablette (adresse https ou fichier local) : à décider. Le partage de fichiers (Share to Outlook) n'est en général disponible qu'en https ; sans lui, l'app propose le brouillon mailto. Survey Record : usage des deux sous-cases de la colonne Centre des relevés, à préciser (la valeur est écrite pour l'instant dans la sous-case de gauche).
 
 Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires, chacune avec ses légendes ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8) ; PDF généré par pdf-lib sur le PDF officiel en fond, et joint automatiquement ; développement étape par étape, avec validation de PL entre chaque étape.
