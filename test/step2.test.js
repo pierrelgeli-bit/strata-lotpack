@@ -43,8 +43,9 @@ async function sign(page, nth) {
   await page.getByLabel('Client').fill('Transport for NSW');
   await page.getByLabel('Project Title').fill('Pacific Hwy resurfacing');
   await page.getByLabel('Job Number').fill('J-24017');
-  await page.getByLabel('Suburb').fill('Coffs Harbour');
   await page.getByRole('button', { name: 'New shift' }).click();
+  await page.locator('.shift-details').getByLabel('Suburb').fill('Coffs Harbour North');
+  await page.locator('.shift-details').getByLabel('Completed by').fill('Pierre L.');
   await page.locator('.shift-details').getByLabel('Date').fill('2026-11-04');
   await page.locator('.shift-details').getByLabel('Product').fill('AC14 Class 320');
   await page.getByLabel('Nominated thickness (mm)').fill('40');
@@ -56,12 +57,9 @@ async function sign(page, nth) {
   check(await page.locator('.warn').innerText().then((t) => t.includes('not signed by COLAS and client')), 'Warning shown while not signed');
   check(await page.locator('.tab.active .dot.st-empty').count() === 1, 'Approval tab marked empty');
 
-  // Header: common values shown, local override kept on this sheet only
+  // No header in the sheet: it comes from Job details / Shift details
   const sheet = page.locator('.sheet');
-  check(await sheet.locator('input[data-key=client]').inputValue() === 'Transport for NSW', 'Header prefilled from job');
-  check(await sheet.locator('input[data-key=product]').inputValue() === 'AC14 Class 320', 'Header prefilled from shift');
-  await sheet.locator('input[data-key=suburb]').fill('Coffs Harbour North');
-  check(await page.locator('.local-tag:not([hidden])').count() === 1, 'Local header edit flagged (Suburb only)');
+  check(await sheet.locator('input[data-key=client], input[data-key=suburb], input[data-key=product]').count() === 0, 'No header fields in the Approval sheet');
 
   // Work type, layer, checks
   await sheet.getByText('Supply & Lay').click();
@@ -73,8 +71,8 @@ async function sign(page, nth) {
   check(await page.locator('.tab.active .dot.st-progress').count() === 1, 'Approval tab marked in progress');
   await sheet.getByLabel('Comments/ Site Conditions').fill('Dry, 18 °C, light wind from the south. Surface swept and tack coat applied at 0.3 L/m² before paving. Works area fully closed to traffic with TGS-04 in place. Night shift crew of 9.');
 
-  // Signatures
-  await sheet.getByLabel('COLAS Representative Name').fill('Pierre L.');
+  // Signatures: COLAS name prefilled with the shift's Completed by
+  check(await sheet.getByLabel(/COLAS Representative Name/).inputValue() === 'Pierre L.', 'COLAS name prefilled with Completed by');
   await sign(page, 0);
   check(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(await sheet.getByLabel('Date & Time').nth(0).inputValue()), 'Signing fills date & time');
   await sheet.getByLabel('Comments', { exact: true }).fill('Hold point released, proceed.');
@@ -91,7 +89,7 @@ async function sign(page, nth) {
   await page.waitForSelector('html[data-ready="1"]');
   await page.getByRole('tab', { name: /Approval to Proceed/ }).click();
   check(await page.locator('.tab.active .dot.st-complete').count() === 1, 'Signatures kept after reload');
-  check(await page.locator('.sheet input[data-key=suburb]').inputValue() === 'Coffs Harbour North', 'Local header edit kept after reload');
+  check(await page.locator('.shift-details').getByLabel('Suburb').inputValue() === 'Coffs Harbour North', 'Shift details kept after reload');
 
   // PDF preview opens
   await page.getByRole('button', { name: 'Preview PDF' }).first().click();

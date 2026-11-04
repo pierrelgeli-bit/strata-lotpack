@@ -67,26 +67,18 @@
         }
         save();
       };
+      // COLAS name prefilled with the shift's Completed by (typing replaces it)
+      const nameField = who === 'COLAS'
+        ? SL.ui.computed('COLAS Representative Name', s, 'name', () => shift.completedBy, save)
+        : field(`${who} Representative Name`, s, 'name', save);
       return h('div', { class: 'grid' },
-        field(`${who} Representative Name`, s, 'name', save),
+        nameField,
         extra,
         dt,
         h('div', { class: 'field span-all' }, h('label', {}, 'Signature'), SL.canvas.signaturePad(s, 'signature', onSign, `${who} signature`)));
     };
 
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', a, 'client', job.client, save),
-          headerField('Date', a, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', a, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', a, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', a, 'suburb', job.suburb, save),
-          headerField('Product', a, 'product', shift.product, save),
-          headerField('Nominated Layer Thickness (mm)', a, 'nominatedThickness', shift.nominatedThickness, save, { inputmode: 'decimal', number: true }))),
-
       h('section', { class: 'block' },
         h('h3', {}, 'Type of work'),
         h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save))),

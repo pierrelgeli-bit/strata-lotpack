@@ -38,10 +38,12 @@ async function sign(page, nth) {
   await page.getByLabel('Client').fill('Transport for NSW');
   await page.getByLabel('Project Title').fill('Pacific Hwy resurfacing');
   await page.getByLabel('Job Number').fill('J-24017');
-  await page.getByLabel('Suburb').fill('Coffs Harbour');
-  await page.getByLabel('Supplying Plant').fill('Boral Coffs Harbour');
-  await page.getByLabel('Haulage (km)').fill('12');
   await page.getByRole('button', { name: 'New shift' }).click();
+  const sd = page.locator('.shift-details');
+  await sd.getByLabel('Suburb').fill('Coffs Harbour');
+  await sd.getByLabel('Supplying Plant').fill('Boral Coffs Harbour');
+  await sd.getByLabel('Haulage (km)').fill('12');
+  await sd.getByLabel('Completed by').fill('Pierre L.');
   await page.locator('.shift-details').getByLabel('Product').fill('AC14');
   await page.getByText('Saved').waitFor();
 
@@ -65,8 +67,7 @@ async function sign(page, nth) {
   const pay = sheet.locator('.items').nth(0).locator('.trow:not(.thead)');
   const con = sheet.locator('.items').nth(1).locator('.trow:not(.thead)');
   const val = (row, key) => row.locator(`input[data-key=${key}]`).inputValue();
-  check(await sheet.locator('input[data-key=workDescription]').inputValue() === 'Supply & Lay – Wearing', 'Work Description built from type of work and layer');
-  check(await sheet.locator('input[data-key=supplyingPlant]').inputValue() === 'Boral Coffs Harbour', 'Supplying Plant from the job');
+  check(await sheet.locator('input[data-key=client], input[data-key=workDescription], input[data-key=supplyingPlant]').count() === 0, 'Header removed from the Quantity sheet');
   const r1 = pay.nth(1);
   check(await val(r1, 'detail') === 'AC14' && await val(r1, 'unit') === 't', 'First Supply, Deliver, Lay: product and unit prefilled');
   check(await val(r1, 'qtyDelivered') === '24.3' && await val(r1, 'm2Paved') === '805', 'QTY Delivered (24.3) and m² (805) prefilled from traceability');
@@ -111,9 +112,9 @@ async function sign(page, nth) {
   check(await page.locator('.tab.active .dot.st-progress').count() === 1, 'Quantity tab in progress');
 
   // Signatures
-  await sheet.getByLabel('COLAS Representative').fill('Pierre L.');
+  check(await sheet.getByLabel(/COLAS Representative/).inputValue() === 'Pierre L.', 'COLAS name prefilled with Completed by');
   await sign(page, 0);
-  check(/^\d{4}-\d{2}-\d{2}$/.test(await sheet.locator('.field', { hasText: 'Date' }).locator('input[type=date]').nth(1).inputValue()), 'Signing fills the date');
+  check(/^\d{4}-\d{2}-\d{2}$/.test(await sheet.locator('input[type=date]').first().inputValue()), 'Signing fills the date');
   await sheet.getByLabel('Client Representative').fill('Sam Taylor');
   await sheet.getByLabel('Position').fill('Site Engineer');
   await sign(page, 1);

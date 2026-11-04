@@ -6,7 +6,7 @@
   const { formatDate } = SL.schema;
   const app = document.getElementById('app');
 
-  const state = { settings: SL.schema.defaultSettings(), contacts: [], shiftTab: {} };
+  const state = { settings: SL.schema.defaultSettings(), contacts: [], shiftTab: {}, shiftDetailsOpen: {}, selection: null };
 
   // Base sheets of every shift, in PDF order. Optional sheets come in later steps.
   const SHEETS = [
@@ -68,15 +68,127 @@
       go(`#/job/${job.id}`);
     };
 
+    const actions = {
+      open: (job) => go(`#/job/${job.id}`),
+      duplicate: async (job) => {
+        const copy = duplicateJob(job);
+        await SL.db.putJob(copy);
+        state.selection = { kind: 'job', id: copy.id };
+        renderJobs();
+      },
+      remove: async (job) => {
+        if (!confirm(`Delete job “${jobTitle(job)}” and its ${job.shifts.length} shift(s)? This cannot be undone.`)) return;
+        await SL.db.deleteJob(job.id);
+        renderJobs();
+      },
+    };
+
     app.replaceChildren(
       h('div', { class: 'row-head' }, h('h1', {}, 'Jobs'), button('New job', newJob, 'primary')),
       jobs.length
-        ? h('div', { class: 'cards' }, jobs.map((job) => h('a', { class: 'card', href: `#/job/${job.id}` },
+        ? h('div', { class: 'cards' }, jobs.map((job) => selectableCard('job', job, actions,
           h('div', { class: 'title' }, jobTitle(job)),
-          h('div', { class: 'meta' }, [job.jobNumber, job.client, job.suburb].filter(Boolean).join(' · ') || 'No details yet'),
+          h('div', { class: 'meta' }, [job.jobNumber, job.client].filter(Boolean).join(' · ') || 'No details yet'),
           h('div', { class: 'meta' }, `${job.shifts.length} shift${job.shifts.length === 1 ? '' : 's'}`))))
         : h('p', { class: 'empty' }, 'No jobs yet. Tap “New job” to start.'),
+      jobs.length ? h('p', { class: 'muted small' }, 'Tap a card to select it, double-tap (or Open) to open it. Right-click or long-press for Duplicate / Delete. Ctrl+C then Ctrl+V duplicates the selected card.') : null,
     );
+    bindClipboard(() => jobs, actions, 'job');
+  }
+
+  // ---- Selection, context menu, duplicate ------------------------------
+  // Deep copy with new ids; the send history and status start again
+  function cloneShift(s) {
+    const c = JSON.parse(JSON.stringify(s));
+    const t = SL.schema.nowIso();
+    c.id = SL.schema.uuid();
+    (c.dipRecords || []).forEach((r) => { r.id = SL.schema.uuid(); });
+    (c.surveys || []).forEach((r) => { r.id = SL.schema.uuid(); });
+    c.sendLog = [];
+    c.status = 'draft';
+    c.createdAt = t; c.updatedAt = t;
+    return c;
+  }
+  function duplicateJob(job) {
+    const c = JSON.parse(JSON.stringify(job));
+    const t = SL.schema.nowIso();
+    c.id = SL.schema.uuid();
+    c.projectTitle = `${job.projectTitle || jobTitle(job)} (copy)`;
+    c.shifts = job.shifts.map(cloneShift);
+    c.createdAt = t; c.updatedAt = t;
+    return c;
+  }
+
+  let menuEl = null;
+  function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  function openMenu(x, y, item, actions) {
+    closeMenu();
+    const act = (fn) => () => { closeMenu(); fn(item); };
+    menuEl = h('div', { class: 'ctx-menu', role: 'menu' },
+      h('button', { type: 'button', role: 'menuitem', onclick: act(actions.open) }, 'Open'),
+      h('button', { type: 'button', role: 'menuitem', onclick: act(actions.duplicate) }, 'Duplicate'),
+      h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: act(actions.remove) }, 'Delete'));
+    document.body.appendChild(menuEl);
+    const r = menuEl.getBoundingClientRect();
+    menuEl.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 8))}px`;
+    menuEl.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 8))}px`;
+    menuEl.querySelector('button').focus();
+  }
+
+  // Card of a job / shift: tap selects, double-tap or Open opens, right-click / long-press = menu
+  function selectableCard(kind, item, actions, ...content) {
+    const sel = () => state.selection && state.selection.kind === kind && state.selection.id === item.id;
+    const openBtn = h('button', { type: 'button', class: 'btn card-open', onclick: (e) => { e.stopPropagation(); actions.open(item); } }, 'Open');
+    const card = h('div', {
+      class: `card selectable${sel() ? ' selected' : ''}`, tabindex: '0', role: 'button',
+      'aria-pressed': sel() ? 'true' : 'false', dataset: { id: item.id },
+    }, ...content, openBtn);
+    const select = () => {
+      state.selection = { kind, id: item.id };
+      card.parentElement && card.parentElement.querySelectorAll('.card.selected').forEach((c) => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
+      card.classList.add('selected');
+      card.setAttribute('aria-pressed', 'true');
+    };
+    card.addEventListener('click', select);
+    card.addEventListener('dblclick', () => actions.open(item));
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') actions.open(item); });
+    card.addEventListener('contextmenu', (e) => { e.preventDefault(); select(); openMenu(e.clientX, e.clientY, item, actions); });
+    // long press on touch screens
+    let timer = null, start = null;
+    card.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      start = [e.clientX, e.clientY];
+      timer = setTimeout(() => { timer = null; select(); openMenu(start[0], start[1], item, actions); }, 550);
+    });
+    const cancel = (e) => { if (timer && (!e || !start || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 10)) { clearTimeout(timer); timer = null; } };
+    card.addEventListener('pointermove', cancel);
+    card.addEventListener('pointerup', () => { clearTimeout(timer); timer = null; });
+    card.addEventListener('pointercancel', () => { clearTimeout(timer); timer = null; });
+    return card;
+  }
+
+  // Ctrl+C / Ctrl+V on the selected card duplicates it (only while that list is on screen)
+  let clip = null;
+  let keyHandler = null;
+  function bindClipboard(list, actions, kind) {
+    if (keyHandler) document.removeEventListener('keydown', keyHandler);
+    const screen = app.firstChild;
+    keyHandler = (e) => {
+      if (!screen.isConnected) { document.removeEventListener('keydown', keyHandler); keyHandler = null; return; }
+      if (!(e.ctrlKey || e.metaKey) || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'c' && state.selection && state.selection.kind === kind) {
+        clip = { kind, id: state.selection.id };
+        e.preventDefault();
+      } else if (k === 'v' && clip && clip.kind === kind) {
+        const item = list().find((x) => x.id === clip.id);
+        if (item) { e.preventDefault(); actions.duplicate(item); }
+      }
+    };
+    document.addEventListener('keydown', keyHandler);
   }
 
   async function renderJob(jobId) {
@@ -90,6 +202,7 @@
       job.shifts.push(shift);
       job.updatedAt = shift.createdAt;
       await SL.db.putJob(job);
+      state.shiftDetailsOpen[shift.id] = true; // a new shift opens with its details to check (date, day / night)
       go(`#/job/${job.id}/shift/${shift.id}`);
     };
 
@@ -100,26 +213,41 @@
       go('#/');
     };
 
-    const shifts = job.shifts.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const shifts = job.shifts.slice().sort(SL.schema.shiftOrder);
+    const shiftActions = {
+      open: (s) => go(`#/job/${job.id}/shift/${s.id}`),
+      duplicate: async (s) => {
+        const copy = cloneShift(s);
+        job.shifts.push(copy);
+        SL.db.touch(job);
+        await SL.db.flush();
+        state.selection = { kind: 'shift', id: copy.id };
+        renderJob(job.id);
+      },
+      remove: async (s) => {
+        if (!confirm(`Delete the shift of ${formatDate(s.date)} (${s.shiftType === 'night' ? 'night' : 'day'})? This cannot be undone.`)) return;
+        job.shifts = job.shifts.filter((x) => x.id !== s.id);
+        SL.db.touch(job);
+        await SL.db.flush();
+        renderJob(job.id);
+      },
+    };
 
     app.replaceChildren(
       crumbs(h('a', { href: '#/' }, 'Jobs'), jobTitle(job)),
       titleEl,
-      h('section', { class: 'panel' },
-        h('h2', {}, 'Job details'),
+      h('details', { class: 'panel fold job-details', open: !(job.client || job.projectTitle || job.jobNumber) },
+        h('summary', {}, h('h2', {}, 'Job details'), h('span', { class: 'muted small fold-sum' }, [job.jobNumber, job.client].filter(Boolean).join(' · '))),
         h('div', { class: 'grid' },
           field('Client', job, 'client', save),
           field('Project Title', job, 'projectTitle', save),
-          field('Job Number', job, 'jobNumber', save),
-          field('Suburb', job, 'suburb', save),
-          field('Supplying Plant', job, 'supplyingPlant', save),
-          field('Haulage (km)', job, 'haulageKm', save, { type: 'number' }))),
+          field('Job Number', job, 'jobNumber', save))),
       h('section', { class: 'panel' },
         h('div', { class: 'row-head' }, h('h2', {}, 'Shifts'), button('New shift', newShift, 'primary')),
         shifts.length
-          ? h('div', { class: 'cards' }, shifts.map((s) => h('a', { class: 'card', href: `#/job/${job.id}/shift/${s.id}` },
-            h('div', { class: 'title' }, formatDate(s.date) || 'No date'),
-            h('div', { class: 'meta' }, [s.product, s.completedBy].filter(Boolean).join(' · ') || 'No details yet'),
+          ? h('div', { class: 'cards' }, shifts.map((s) => selectableCard('shift', s, shiftActions,
+            h('div', { class: 'title' }, `${formatDate(s.date) || 'No date'} · ${s.shiftType === 'night' ? 'Night' : 'Day'}`),
+            h('div', { class: 'meta' }, [s.suburb, s.product, s.completedBy].filter(Boolean).join(' · ') || 'No details yet'),
             h('div', { class: 'meta' }, lastSent(s) ? `Draft emailed ${fmtStamp(lastSent(s).sentAt)}` : 'Not sent yet'))))
           : h('p', { class: 'empty' }, 'No shifts yet. One shift = one lotpack.')),
       h('section', { class: 'panel' },
@@ -144,6 +272,7 @@
         }),
         button('Delete job', delJob, 'danger')),
     );
+    bindClipboard(() => job.shifts, shiftActions, 'shift');
   }
 
   // Base sheets, then the optional Dip / Survey Records added to the shift (PDF order)
@@ -173,8 +302,12 @@
     const job = await SL.db.getJob(jobId);
     const shift = job && job.shifts.find((s) => s.id === shiftId);
     if (!shift) return notFound('This shift no longer exists.');
-    const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = formatDate(shift.date) || 'No date'; };
-    const dateCrumb = h('span', {}, formatDate(shift.date) || 'No date');
+    const shiftLabel = () => `${formatDate(shift.date) || 'No date'} · ${shift.shiftType === 'night' ? 'Night' : 'Day'}`;
+    const sumEl = h('span', { class: 'muted small fold-sum' });
+    const refreshSum = () => { sumEl.textContent = [shiftLabel(), shift.suburb, shift.product, shift.completedBy].filter(Boolean).join(' · '); };
+    const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = shiftLabel(); refreshSum(); };
+    const dateCrumb = h('span', {}, shiftLabel());
+    refreshSum();
 
     const F = SL.forms || {};
     const sheets = sheetList(shift);
@@ -234,10 +367,19 @@
 
     app.replaceChildren(
       crumbs(h('a', { href: '#/' }, 'Jobs'), h('a', { href: `#/job/${job.id}` }, jobTitle(job)), dateCrumb),
-      h('section', { class: 'panel shift-details' },
-        h('h2', {}, 'Shift'),
+      h('details', { class: 'panel fold shift-details', open: state.shiftDetailsOpen[shift.id] ?? !shift.product,
+        ontoggle: (e) => { state.shiftDetailsOpen[shift.id] = e.target.open; } },
+        h('summary', {}, h('h2', {}, 'Shift details'), sumEl),
         h('div', { class: 'grid' },
           field('Date', shift, 'date', save, { type: 'date' }),
+          h('div', { class: 'field' }, h('label', {}, 'Shift'), h('div', { class: 'choice' }, [['day', 'Day'], ['night', 'Night']].map(([v, l]) => {
+            const input = h('input', { type: 'radio', name: `st-${shift.id}`, value: v, checked: (shift.shiftType || 'day') === v });
+            input.addEventListener('change', () => { shift.shiftType = v; save(); });
+            return h('label', { class: 'chk' }, input, h('span', {}, l));
+          }))),
+          field('Suburb', shift, 'suburb', save),
+          field('Supplying Plant', shift, 'supplyingPlant', save),
+          field('Haulage (km)', shift, 'haulageKm', save, { type: 'number' }),
           field('Product', shift, 'product', save),
           field('Nominated thickness (mm)', shift, 'nominatedThickness', save, { type: 'number' }),
           field('Completed by', shift, 'completedBy', save))),
@@ -255,6 +397,11 @@
         button('Preview PDF', () => previewPdf(job, shift)),
         button('Delete shift', delShift, 'danger')),
     );
+    // Sheet tab bar: the open tab stays centred and visible (the bar does not jump back to the start)
+    requestAnimationFrame(() => {
+      const act = tabs.querySelector('.tab.active');
+      if (act) tabs.scrollLeft = act.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - act.offsetWidth) / 2;
+    });
   }
 
   // ---- Finish & send ---------------------------------------------------
@@ -309,14 +456,21 @@
     const cc = splitEmails(state.settings.alwaysCc).filter(SL.mail.isEmail);
 
     // 4. The draft as it will be created
-    const subjectEl = h('div', { class: 'mail-subject' });
-    const bodyEl = h('pre', { class: 'mail-body' });
+    // Subject and body: default template, entirely editable before the draft is opened
+    const subjectEl = h('input', { type: 'text', class: 'mail-subject', 'aria-label': 'Subject', value: SL.mail.subject(job, shift) });
+    const bodyEl = h('textarea', { class: 'mail-body', 'aria-label': 'Body', rows: 16 });
+    bodyEl.value = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+    const resetMail = button('Reset to default text', () => {
+      subjectEl.value = SL.mail.subject(job, shift);
+      bodyEl.value = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+    });
+    // what is sent = what is in the boxes at the time of the tap
+    const takeText = () => { pack.subject = subjectEl.value; pack.body = bodyEl.value; };
     const toEl = h('div', { class: 'small' });
     function refreshMail() {
       const to = Array.from(selected);
       toEl.textContent = `To: ${to.join('; ') || '— none selected —'}${cc.length ? `   ·   CC: ${cc.join('; ')}` : ''}`;
-      subjectEl.textContent = `Subject: ${SL.mail.subject(job, shift)}`;
-      bodyEl.textContent = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+
     }
 
     // 5. Buttons and result
@@ -339,6 +493,7 @@
       type: 'button', class: 'btn primary', disabled: true,
       onclick: () => {
         const to = Array.from(selected);
+        takeText();
         SL.mail.share(pack, to, cc)
           .then(({ copied }) => done('share', copied && (to.length || cc.length)
             ? 'The To / CC addresses are copied: paste them in the draft.'
@@ -353,6 +508,7 @@
     const mailtoBtn = h('button', {
       type: 'button', class: 'btn', disabled: true,
       onclick: async () => {
+        takeText();
         await SL.mail.mailto(pack, Array.from(selected), cc);
         done('mailto', `PDF and JSON downloaded (${pack.pdf.name}, ${pack.json.name}): attach them to the draft.`);
       },
@@ -386,7 +542,10 @@
         h('p', { class: 'small' }, cc.length ? `Always in CC: ${cc.join('; ')}` : 'No “always CC” address (Settings).', ' ', h('a', { href: '#/settings' }, 'Settings'))),
       h('section', { class: 'panel' },
         h('h2', {}, '4. Email'),
-        toEl, subjectEl, bodyEl,
+        toEl,
+        h('div', { class: 'field' }, h('label', {}, 'Subject'), subjectEl),
+        h('div', { class: 'field' }, h('label', {}, 'Body'), bodyEl),
+        h('div', { class: 'actions' }, resetMail),
         h('div', { class: 'actions' }, shareBtn, mailtoBtn),
         h('p', { class: 'muted small', hidden: true, dataset: { note: 'share' } }, 'Share to Outlook attaches the PDF and JSON; the To / CC addresses are copied to paste in the draft.'),
         h('p', { class: 'muted small' }, 'Nothing is sent by the app: you check the draft and send it from your mail app.'),
@@ -471,6 +630,10 @@
         h('h3', {}, 'Address book'),
         addressBook()),
       dataSection(),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Install the app'),
+        h('p', { class: 'small' }, 'Open the app address once with network, then: iPhone / iPad — Share → Add to Home Screen; Android — ⋮ → Install app. It then works offline; when a new version is published, “Update available – Reload” appears.'),
+        h('p', { class: 'muted small' }, SL.pwa && SL.pwa.served ? 'This page is served over https: offline mode and file sharing are available.' : 'Opened as a local file: install from the published address to get offline mode and file sharing.')),
     );
   }
 
@@ -479,9 +642,18 @@
     const out = h('div', { class: 'import-report', role: 'status' });
     const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
     const today = SL.schema.todayIso();
+    const lastEl = h('p', { class: 'small' });
+    const showLast = () => {
+      const l = state.settings.lastExport;
+      lastEl.textContent = l ? `Last export: ${fmtStamp(l)}` : 'No export made yet on this device.';
+    };
+    showLast();
     const exportAll = async () => {
       await SL.db.flush();
       SL.io.download(await SL.io.exportAll(), `Strata-Lotpack_export_${today}.json`);
+      state.settings.lastExport = SL.mail.isoLocal();
+      saveSettings();
+      showLast();
     };
     const LABEL = { added: 'Added', replaced: 'Replaced by the imported version (newer)', kept: 'Kept this device version (newer)' };
     fileInput.addEventListener('change', async () => {
@@ -523,6 +695,8 @@
     });
     return h('section', { class: 'panel' },
       h('h2', {}, 'Data'),
+      h('div', { class: 'warn' }, '⚠ Lotpacks are stored only on this device. Clearing the browser data deletes them: export all data regularly and keep the file.'),
+      lastEl,
       h('p', { class: 'muted small' }, 'Export all jobs to a JSON file (backup, or to open them on another device). Import merges by id: for each shift the most recent version wins; you see the report before applying. Settings of this device are not changed by an import.'),
       h('div', { class: 'actions' }, button('Export all data (JSON)', exportAll), button('Import JSON…', () => fileInput.click())),
       fileInput,

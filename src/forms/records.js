@@ -37,6 +37,7 @@
 
   function ensure(rec) {
     rec.header = rec.header || {};
+    if (!rec.date && rec.header.date) rec.date = rec.header.date; // older data: date was a header override
     rec.courses = rec.courses && rec.courses.length === 3 ? rec.courses : [blankBlock(), blankBlock(), blankBlock()];
     rec.courses.forEach((b) => {
       b.offsets = b.offsets || { l: null, c: null, r: null };
@@ -192,13 +193,11 @@
       return h('div', { class: 'sheet' },
         h('section', { class: 'block' },
           h('h3', {}, 'Header'),
-          h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
+          h('p', { class: 'muted small' }, 'Client, project, job number and suburb come from Job and Shift details. Date and Mix type are prefilled from the shift and can be changed for this sheet only.'),
           h('div', { class: 'grid' },
-            headerField('Client', rec, 'client', job.client, save),
-            headerField('Date', rec, 'date', shift.date, save, { type: 'date' }),
-            headerField('Project Title', rec, 'projectTitle', job.projectTitle, save),
-            headerField('Job Number', rec, 'jobNumber', job.jobNumber, save),
-            field('Mix Type', rec, 'mixType', save),
+            // Date and Mix type prefilled from the shift; changing them here does not change the shift
+            headerField('Date', rec, 'date', shift.date, save, { type: 'date', direct: true }),
+            SL.ui.computed('Mix Type', rec, 'mixType', () => shift.product, save),
             field('Frequency of Testing', rec, 'frequency', save)),
           h('div', { class: 'grid' },
             oneOf('Existing Surface', rec, 'existingSurface', SURFACES, save),

@@ -13,16 +13,30 @@
   const baseName = (job, shift) => `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}`;
   const jsonName = (job, shift) => `${baseName(job, shift)}.json`;
 
-  // Subject: "Lotpack – <date of the lotpack>" (DD/MM/YYYY)
+  const dayNight = (shift) => (shift.shiftType === 'night' ? 'Night' : 'Day');
+  const jobLabel = (job) => [job.jobNumber, job.projectTitle].filter(Boolean).join(' ');
+
+  // Default subject: "Lotpack – <Job Number> <Project> – <date of the lotpack> (<Day/Night>)"; editable before sending
   function subject(job, shift) {
-    return `Lotpack – ${formatDate(shift.date)}`.trim();
+    return ['Lotpack', jobLabel(job), `${formatDate(shift.date)} (${dayNight(shift)})`].filter(Boolean).join(' – ');
   }
 
-  // Generic English body; an empty field is left out
+  // Sheets in the PDF, in pack order
+  function sheetsIncluded(shift) {
+    const pages = (shift.diagram && shift.diagram.pages) || [];
+    const list = ['Approval to Proceed (MSF28-6)', `Site Diagram (MSF28-7)${pages.length > 1 ? ` – ${pages.length} drawing pages` : ''}`, 'Asphalt Traceability (MSF28-10)'];
+    (shift.dipRecords || []).forEach((r, i) => list.push(`Pavement Measured Dip Record ${i + 1} (MSF28-9)`));
+    (shift.surveys || []).forEach((r, i) => list.push(`Survey Record ${i + 1} (MSF28-12)`));
+    list.push('Quantity & Placement Agreement (MSF28-11)');
+    return list;
+  }
+
+  // Default body (English): job, shift, date, sheets included, attachments; editable before sending
   function body(job, shift, files) {
     const date = formatDate(shift.date);
-    const what = [job.projectTitle, date].filter(Boolean).join(' – ');
-    const lines = ['Hi,', '', `Please find attached the lot pack${what ? ` for ${what}` : ''}.`, ''];
+    const what = [jobLabel(job), `${date} (${dayNight(shift)} shift)`].filter(Boolean).join(' – ');
+    const lines = ['Hi,', '', `Please find attached the lot pack for ${what}.`, ''];
+    lines.push('Sheets included:', ...sheetsIncluded(shift).map((n) => `- ${n}`), '');
     const names = (files || []).filter(Boolean);
     if (names.length) lines.push('Attachments:', ...names.map((n) => `- ${n}`), '');
     lines.push('Regards,');
@@ -108,7 +122,7 @@
   }
 
   SL.mail = {
-    isEmail, subject, body, shiftJson, jsonName, prepare, canShareFiles, share, mailto, mailtoUrl,
+    isEmail, subject, body, sheetsIncluded, shiftJson, jsonName, prepare, canShareFiles, share, mailto, mailtoUrl,
     recipientsText, logDraft, isoLocal,
     _open: (url) => { window.location.href = url; },
   };

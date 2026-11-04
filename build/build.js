@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-/* Assemble src/ into a single self-contained HTML file: dist/strata-lotpack.html
+/* Assemble src/ into a single self-contained HTML file.
    Every <link rel="stylesheet" href="..."> and <script src="..."> in src/index.html
-   is replaced by the file's content, inline. */
+   is replaced by the file's content, inline.
+   Outputs (dist/):
+   - strata-lotpack.html : the app in one file
+   - index.html, manifest.webmanifest, sw.js, icons/ : the same app published as an installable PWA (GitHub Pages) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -42,11 +45,20 @@ html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, rel) => {
   return `<script>/* ${rel} */\n${header}${js.replace(/<\/script/gi, '<\\/script')}</script>`;
 });
 
-if (/<(script|link)[^>]+(src|href)="(?!#)/.test(html)) {
+if (/<script[^>]+src=|<link[^>]+rel="stylesheet"/.test(html)) {
   throw new Error('An external script or stylesheet was left in the output.');
 }
 
-fs.mkdirSync(path.dirname(out), { recursive: true });
+const dist = path.dirname(out);
+fs.mkdirSync(path.join(dist, 'icons'), { recursive: true });
 fs.writeFileSync(out, html);
-console.log(`Built ${path.relative(root, out)} (${(Buffer.byteLength(html) / 1024).toFixed(1)} KB) from ${used.length} files:`);
+fs.writeFileSync(path.join(dist, 'index.html'), html);
+
+// PWA files: manifest, icons, service worker with a version = hash of the app
+const version = require('crypto').createHash('sha256').update(html).digest('hex').slice(0, 12);
+fs.copyFileSync(path.join(src, 'pwa', 'manifest.webmanifest'), path.join(dist, 'manifest.webmanifest'));
+for (const f of fs.readdirSync(path.join(src, 'pwa', 'icons'))) fs.copyFileSync(path.join(src, 'pwa', 'icons', f), path.join(dist, 'icons', f));
+fs.writeFileSync(path.join(dist, 'sw.js'), read('pwa/sw.js').replace("'__BUILD_VERSION__'", `'${version}'`));
+
+console.log(`Built ${path.relative(root, out)} + index.html (${(Buffer.byteLength(html) / 1024).toFixed(1)} KB, version ${version}) from ${used.length} files:`);
 used.forEach((u) => console.log(`  - src/${u}`));

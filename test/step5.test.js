@@ -30,6 +30,8 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   await page.getByLabel('Job Number').fill('J-24017');
   await page.getByRole('button', { name: 'New shift' }).click();
   await page.locator('.shift-details').getByLabel('Completed by').fill('Pierre L.');
+  await page.locator('.shift-details').getByLabel('Date').fill('2026-11-04');
+  await page.locator('.shift-details').getByLabel('Product').fill('AC14');
   await page.getByText('Saved').waitFor();
 
   check(await page.getByRole('tab', { name: /Dip Record/ }).count() === 0, 'No Dip / Survey Record by default');
@@ -39,7 +41,12 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   check(await page.getByRole('tab', { name: /Dip Record 1/ }).getAttribute('aria-selected') === 'true', 'Dip Record 1 added and open');
   const sheet = page.locator('.sheet');
   await sheet.waitFor();
-  check(await sheet.locator('input[data-key=client]').inputValue() === 'Transport for NSW', 'Header prefilled from job');
+  await sheet.getByLabel('Mix Type').waitFor();
+  check(await sheet.locator('input[data-key=client], input[data-key=projectTitle], input[data-key=jobNumber]').count() === 0, 'Client, Project title, Job number removed from the sheet');
+  check(await sheet.locator('input[data-key=date]').inputValue() === '2026-11-04', 'Date prefilled with the shift date');
+  check(await sheet.getByLabel('Mix Type').inputValue() === 'AC14', 'Mix type prefilled with the shift product');
+  await sheet.locator('input[data-key=date]').fill('2026-11-05');
+  check(await page.locator('.shift-details').getByLabel('Date').inputValue() === '2026-11-04', 'Changing the sheet date does not change the shift date');
   await sheet.getByLabel('Mix Type').fill('AC14 Class 320');
   await sheet.getByLabel('Frequency of Testing').fill('Every 20 m');
   await sheet.locator('.field', { hasText: 'Existing Surface' }).getByText('Seal', { exact: true }).click();
@@ -130,6 +137,7 @@ const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   const codes = texts.map((t) => (t.match(/MSF28-\d+/) || ['?'])[0]);
   check(n === 6 && codes.join(',') === 'MSF28-6,MSF28-7,MSF28-10,MSF28-9,MSF28-12,MSF28-11', `PDF order ${codes.join(', ')}`);
   const dip = texts[3], sur = texts[4];
+  check(dip.includes('05/11/2026'), 'Dip Record PDF uses the sheet date');
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'AC14 Class 320', 'Every 20 m', '1.2', '55', '40', '200', '50', '1.75', 'North', '3.5', '1000', '1020', '58', '2370', '52.5', 'Pierre L.']) {
     check(dip.includes(s), `Dip Record page contains “${s}”`);
   }

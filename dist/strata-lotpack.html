@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>Strata Lotpack</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1f26" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Lotpack">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <style>/* styles/app.css */
 /* Strata Lotpack — tablet / phone UI */
 :root {
@@ -209,7 +215,8 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .sk-draw { touch-action: none; cursor: crosshair; }
 .sk-expand { position: absolute; top: 6px; right: 6px; z-index: 3; width: 44px; height: 44px; border-radius: 8px; border: 1px solid #8a929e; background: rgba(255,255,255,.92); color: #111; font-size: 22px; line-height: 1; cursor: pointer; }
 .sk.full { position: fixed; inset: 0; z-index: 200; background: var(--surface); padding: 8px 12px 12px; gap: 8px; overflow: hidden; }
-.sk.full .sk-tools { padding: 0; }
+.sk.full .sk-tools { padding: 0 0 4px; flex-wrap: nowrap; overflow-x: auto; } /* one row: the height goes to the drawing */
+.sk.full .tgroup { flex-wrap: nowrap; flex: 0 0 auto; }
 html.sk-lock, html.sk-lock body { overflow: hidden; }
 .page-tabs { margin: 0; }
 .legends { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 12px; }
@@ -261,6 +268,45 @@ table.hist th, table.hist td { text-align: left; padding: 8px 6px; border-bottom
 .import-summary { font-weight: 600; }
 tr.act-kept td { color: #b06d00; }
 tr.act-replaced td { color: var(--accent); }
+
+/* Collapsible panels and rows */
+details.fold > summary, details.fold-row > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: var(--tap); }
+details.fold > summary::-webkit-details-marker, details.fold-row > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before, details.fold-row > summary::before { content: '▸'; color: var(--muted); font-size: 14px; transition: transform .15s; }
+details.fold[open] > summary::before, details.fold-row[open] > summary::before { transform: rotate(90deg); }
+details.fold > summary h2, details.fold > summary h3 { margin: 0; }
+details.fold[open] > summary { margin-bottom: 12px; }
+.fold-sum { flex: 1 1 200px; }
+details.fold-row { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 12px; }
+details.fold-row > summary { gap: 16px; font-weight: 600; }
+details.fold-row > summary .sum-prog { margin-left: auto; min-height: 32px; }
+details.fold-row[open] { padding-bottom: 12px; }
+details.fold-row .trow { flex-wrap: wrap; }
+details.fold-row .trow .cell { flex: 1 1 140px; }
+details.fold-row .trow .cell.w-l, details.fold-row .trow .cell.w-m { flex-basis: 100%; }
+details.fold-row .trow .cell-label { position: static; width: auto; height: auto; clip: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* Selectable cards and context menu */
+.card.selectable { cursor: pointer; position: relative; padding-right: 92px; }
+.card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.card-open { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); min-height: 40px; padding: 0 14px; }
+.ctx-menu { position: fixed; z-index: 300; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); display: flex; flex-direction: column; min-width: 180px; overflow: hidden; }
+.ctx-menu button { min-height: var(--tap); padding: 0 16px; text-align: left; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.ctx-menu button:hover, .ctx-menu button:focus { background: var(--bg); }
+.ctx-menu button.danger { color: var(--danger); }
+
+/* Legends with a colour key, zoom */
+.key-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+fieldset.legend { border-left: 6px solid var(--lg, var(--border)); }
+.lg-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--lg); margin-right: 6px; vertical-align: middle; }
+.zoom-label { min-width: 56px; text-align: center; font-size: 14px; color: var(--muted); align-self: center; }
+
+/* Editable email */
+input.mail-subject { min-height: var(--tap); padding: 8px 12px; font: inherit; font-weight: 600; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); width: 100%; }
+textarea.mail-body { width: 100%; min-height: 280px; resize: vertical; }
+
+/* Update banner (installed app) */
+.update-bar { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 400; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px 16px; border-radius: 10px; background: var(--text); color: var(--bg); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
 
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
@@ -353,7 +399,10 @@ SOFTWARE.
 (function (SL) {
   'use strict';
 
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
+
+  // Drawing / legend colours (a legend's Key is its colour)
+  const PALETTE = ['#d11f1f', '#1f4fd1', '#16893a', '#e07b00', '#7b2fbf', '#8a5a2b', '#0f8a8a', '#111111'];
 
   function uuid() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -388,20 +437,27 @@ SOFTWARE.
     const t = nowIso();
     return {
       id: uuid(),
-      client: '', projectTitle: '', jobNumber: '', suburb: '',
-      supplyingPlant: '', haulageKm: null,
+      client: '', projectTitle: '', jobNumber: '',
       shifts: [],
       createdAt: t, updatedAt: t,
     };
   }
 
-  // Common fields (product, completed by) carry over from the job's latest shift
+  // Shift order everywhere: date ascending, day before night
+  const shiftOrder = (a, b) => (a.date || '').localeCompare(b.date || '')
+    || (a.shiftType === 'night' ? 1 : 0) - (b.shiftType === 'night' ? 1 : 0);
+
+  // Shift details carry over from the job's latest shift
   function newShift(job, settings) {
     const t = nowIso();
-    const prev = job && job.shifts.length ? job.shifts[job.shifts.length - 1] : null;
+    const prev = job && job.shifts.length ? job.shifts.slice().sort(shiftOrder)[job.shifts.length - 1] : null;
     return {
       id: uuid(),
       date: todayIso(),
+      shiftType: 'day',
+      suburb: prev ? prev.suburb || '' : '',
+      supplyingPlant: prev ? prev.supplyingPlant || '' : '',
+      haulageKm: prev ? prev.haulageKm ?? null : null,
       product: prev ? prev.product : '',
       nominatedThickness: prev ? prev.nominatedThickness : null,
       workType: [], layer: [],
@@ -419,8 +475,38 @@ SOFTWARE.
     };
   }
 
-  // Each step i -> i+1 lives here; none yet (schema v1)
-  const MIGRATIONS = {};
+  const LAYER_KEYS = ['base', 'intermediate', 'wearing', 'correction', 'other'];
+
+  // Each step i -> i+1
+  const MIGRATIONS = {
+    // v1 -> v2: suburb / plant / haulage move from the job to each shift (Shift details);
+    // shift type; diagram legends become a list with a colour key, Completed by from the shift
+    1: (job) => {
+      const { suburb = '', supplyingPlant = '', haulageKm = null } = job;
+      (job.shifts || []).forEach((s) => {
+        if (s.suburb === undefined) s.suburb = suburb || '';
+        if (s.supplyingPlant === undefined) s.supplyingPlant = supplyingPlant || '';
+        if (s.haulageKm === undefined) s.haulageKm = haulageKm ?? null;
+        if (!s.shiftType) s.shiftType = 'day';
+        const pages = (s.diagram && s.diagram.pages) || [];
+        pages.forEach((p) => {
+          p.legends = (p.legends || []).filter((l) => l && ['key', 'mix', 'layer', 'depth', 'area', 'tonnes'].some((k) => l[k] !== '' && l[k] !== null && l[k] !== undefined))
+            .map((l, i) => ({
+              color: PALETTE[i % PALETTE.length],
+              mix: l.mix || null,
+              // null = take the shift's layer (Approval); a list = edited on the legend
+              layer: ((arr) => (arr.length ? arr : null))(String(l.layer || '').toLowerCase().split(/[\s,/]+/).filter((x) => LAYER_KEYS.includes(x))),
+              depth: l.depth === '' || l.depth === undefined ? null : l.depth,
+              area: l.area ?? null,
+              tonnes: l.tonnes ?? null,
+            }));
+          delete p.completedBy;
+        });
+      });
+      delete job.suburb; delete job.supplyingPlant; delete job.haulageKm;
+      return job;
+    },
+  };
 
   function migrateJob(job) {
     let v = job.schemaVersion || 1;
@@ -435,8 +521,8 @@ SOFTWARE.
   }
 
   SL.schema = {
-    SCHEMA_VERSION, uuid, nowIso, todayIso, formatDate,
-    defaultSettings, newJob, newShift, migrateJob,
+    SCHEMA_VERSION, PALETTE, LAYER_KEYS, uuid, nowIso, todayIso, formatDate,
+    defaultSettings, newJob, newShift, migrateJob, shiftOrder,
   };
 })(window.SL = window.SL || {});
 </script>
@@ -551,6 +637,7 @@ SOFTWARE.
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
     diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
     diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
+    legendsExtra: { index: null, pageNo: { cx: 297.7, baselineTop: 832, size: 9 } },
     quantities: { index: 5, pageNo: { cx: 398.2, baselineTop: 591.0, size: 10 } },
     dip: { index: 6, pageNo: { cx: 320, baselineTop: 829.6, size: 9 } },
     survey: { index: 7, pageNo: { cx: 320, baselineTop: 832.5, size: 9 } },
@@ -870,27 +957,29 @@ SOFTWARE.
     try { return await doc.embedPng(dataUrl); } catch (e) { console.error(e); return null; }
   }
 
-  // Header values: the sheet's local override, else the job / shift common value
-  function headerValues(job, shift, sheet) {
-    const o = (sheet && sheet.header) || {};
-    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
-    const thick = pick('nominatedThickness', shift.nominatedThickness);
+  // Sheet headers come from Job details and Shift details (not typed in the sheets).
+  // opts.date: a sheet's own date (Dip / Survey Records can differ from the shift)
+  function headerValues(job, shift, opts = {}) {
+    const thick = shift.nominatedThickness;
     return {
-      client: pick('client', job.client),
-      projectTitle: pick('projectTitle', job.projectTitle),
-      jobNumber: pick('jobNumber', job.jobNumber),
-      suburb: pick('suburb', job.suburb),
-      date: SL.schema.formatDate(pick('date', shift.date)),
-      product: pick('product', shift.product),
+      client: job.client,
+      projectTitle: job.projectTitle,
+      jobNumber: job.jobNumber,
+      suburb: shift.suburb,
+      date: SL.schema.formatDate(opts.date || shift.date),
+      product: shift.product,
       nominatedThickness: thick === null || thick === undefined || thick === '' ? '' : `${thick} mm`,
+      supplyingPlant: shift.supplyingPlant,
+      haulageKm: shift.haulageKm,
     };
   }
+  const orDefault = (v, d) => (v === null || v === undefined || v === '' ? d : v);
 
   // ---------------------------------------------------------------------
   async function drawApproval(doc, page, fonts, job, shift) {
     const w = writer(page, fonts);
     const a = shift.approval || {};
-    const hv = headerValues(job, shift, a);
+    const hv = headerValues(job, shift);
     APPROVAL.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
 
     const wt = new Set(shift.workType || []);
@@ -905,7 +994,7 @@ SOFTWARE.
     w.lines(a.comments, rows, 9);
 
     const cs = a.colasSign || {};
-    w.text(cs.name, ...APPROVAL.colas.name);
+    w.text(orDefault(cs.name, shift.completedBy), ...APPROVAL.colas.name);
     const csImg = await embedSignature(doc, cs.signature);
     if (csImg) w.image(csImg, APPROVAL.colas.sign);
     w.text(fmtDateTime(cs.dateTime), ...APPROVAL.colas.dateTime);
@@ -946,13 +1035,41 @@ SOFTWARE.
     });
   }
 
-  function drawLegends(w, L, dp, completedBy) {
-    dp.legends.forEach((lg, k) => {
+  // Legend values with their defaults: Mix = shift product, Layer = shift layer, Depth = nominated thickness
+  function legendValues(shift, lg, i) {
+    const LAYER_LABEL = { base: 'Base', intermediate: 'Intermediate', wearing: 'Wearing', correction: 'Correction', other: 'Other' };
+    const layers = Array.isArray(lg.layer) ? lg.layer : (shift.layer || []);
+    const depth = orDefault(lg.depth, shift.nominatedThickness);
+    return {
+      n: i + 1,
+      color: lg.color,
+      mix: orDefault(lg.mix, shift.product),
+      layer: layers.map((k) => LAYER_LABEL[k]).filter(Boolean).join(', '),
+      depth: depth === null || depth === undefined || depth === '' ? '' : `${depth} mm`,
+      area: lg.area,
+      tonnes: lg.tonnes,
+    };
+  }
+
+  // Key = colour swatch + legend number, in the Key cell of the printed sheet
+  function swatch(page, x, baselineTop, color, size = 8) {
+    page.drawRectangle({
+      x, y: page.getHeight() - baselineTop - 1, width: size * 1.6, height: size,
+      color: hexRgb(color), borderColor: PDFLib.rgb(0.2, 0.2, 0.2), borderWidth: 0.4,
+    });
+  }
+
+  // Legends 1 and 2 of a drawing page in the printed cells
+  function drawLegends(w, page, L, shift, legends, completedBy) {
+    legends.slice(0, 2).forEach((lg, k) => {
       const c = L.legends[k];
-      const t = (v, [x0, x1], row) => w.text(fmtNum(v), x0, x1, L.rows[row], 8.5);
-      t(lg.key, c.key, 0); t(lg.mix, c.mix, 0); t(lg.area, c.area, 0);
-      t(lg.layer, c.mix, 1); t(lg.tonnes, c.area, 1);
-      t(lg.depth, c.mix, 2);
+      const v = legendValues(shift, lg, k);
+      const t = (val, [x0, x1], row) => w.text(fmtNum(val), x0, x1, L.rows[row], 8.5);
+      swatch(page, c.key[0], L.rows[0], v.color);
+      w.text(String(v.n), c.key[0] + 15, c.key[1], L.rows[0], 8.5);
+      t(v.mix, c.mix, 0); t(v.area, c.area, 0);
+      t(v.layer, c.mix, 1); t(v.tonnes, c.area, 1);
+      t(v.depth, c.mix, 2);
     });
     w.text(completedBy, ...L.completedBy, 10);
   }
@@ -963,21 +1080,50 @@ SOFTWARE.
     const dp = d.pages[entry.pageIndex];
     const L = entry.pageIndex === 0 ? DIAG.first : DIAG.more;
     if (entry.pageIndex === 0) {
-      const hv = headerValues(job, shift, d);
+      const hv = headerValues(job, shift);
       L.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
       const wt = new Set(shift.workType || []);
       L.workType.forEach(([k, cx, cy]) => wt.has(k) && w.tick(cx, cy));
     }
     drawStrokes(page, dp.strokes, L.grid);
-    drawLegends(w, L, dp, dp.completedBy || shift.completedBy);
+    drawLegends(w, page, L, shift, dp.legends || [], shift.completedBy);
+  }
+
+  // Legends 3 and more of every drawing page: table on extra page(s) after the Site Diagram
+  const LEG_EXTRA = { cols: [['Page', 40, 80], ['Key', 80, 130], ['Mix', 130, 250], ['Layer', 250, 380], ['Depth', 380, 440], ['Area (m²)', 440, 500], ['Tonnes', 500, 555]], top0: 120, rowH: 20, rows: 32 };
+  async function drawLegendsExtra(doc, page, fonts, job, shift, entry) {
+    const w = writer(page, fonts);
+    const H = page.getHeight();
+    const black = PDFLib.rgb(0, 0, 0);
+    const line = (x0, y0, x1, y1, t = 0.6) => page.drawLine({ start: { x: x0, y: H - y0 }, end: { x: x1, y: H - y1 }, thickness: t, color: black });
+    w.text('Site Diagram — Legends (continued)', 40, 555, 60, 14, { bold: true, color: black });
+    w.text([job.jobNumber, job.projectTitle, SL.schema.formatDate(shift.date)].filter(Boolean).join('  ·  '), 40, 555, 80, 10, { color: black });
+    const C = LEG_EXTRA.cols;
+    const top = LEG_EXTRA.top0, bottom = top + LEG_EXTRA.rowH * (entry.items.length + 1);
+    C.forEach(([label, x0, x1]) => w.text(label, x0 + 3, x1 - 3, top + 13, 9, { bold: true, color: black }));
+    for (let r = 0; r <= entry.items.length + 1; r++) line(40, top + r * LEG_EXTRA.rowH, 555, top + r * LEG_EXTRA.rowH);
+    [40, ...C.map((c) => c[2])].forEach((x) => line(x, top, x, bottom));
+    entry.items.forEach(({ page: pg, lg, i }, r) => {
+      const v = legendValues(shift, lg, i);
+      const base = top + (r + 1) * LEG_EXTRA.rowH + 13;
+      w.text(String(pg + 1), C[0][1] + 3, C[0][2] - 3, base, 9, { align: 'center' });
+      swatch(page, C[1][1] + 5, base, v.color, 9);
+      w.text(String(v.n), C[1][1] + 25, C[1][2] - 3, base, 9);
+      w.text(v.mix, C[2][1] + 3, C[2][2] - 3, base, 9);
+      w.text(v.layer, C[3][1] + 3, C[3][2] - 3, base, 9);
+      w.text(v.depth, C[4][1] + 3, C[4][2] - 3, base, 9, { align: 'center' });
+      w.text(fmtNum(v.area), C[5][1] + 3, C[5][2] - 3, base, 9, { align: 'center' });
+      w.text(fmtNum(v.tonnes), C[6][1] + 3, C[6][2] - 3, base, 9, { align: 'center' });
+    });
+    w.text('COLAS NSW PTY Ltd — MSF28-7 Site Diagram, legends 3 and more', 40, 555, 818, 8, { color: black });
   }
 
   async function drawRecord(doc, page, fonts, job, shift, entry) {
     const w = writer(page, fonts);
     const L = REC[entry.kind];
     const rec = SL.forms[entry.kind].ensure(entry.rec);
-    const hv = headerValues(job, shift, rec);
-    const vals = { ...hv, mixType: rec.mixType, frequency: rec.frequency };
+    const hv = headerValues(job, shift, { date: rec.date });
+    const vals = { ...hv, mixType: orDefault(rec.mixType, shift.product), frequency: rec.frequency };
     L.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
     const sf = L.surface[rec.existingSurface];
     if (sf) w.tick(sf[0], sf[1], 2.6);
@@ -1007,15 +1153,8 @@ SOFTWARE.
     const w = writer(page, fonts);
     const Q = SL.forms.quantities;
     const q = Q.ensure(shift);
-    const hv = headerValues(job, shift, q);
-    const o = q.header || {};
-    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
-    const vals = {
-      ...hv,
-      workDescription: Q.workDescription(shift),
-      supplyingPlant: pick('supplyingPlant', job.supplyingPlant),
-      haulageKm: fmtNum(pick('haulageKm', job.haulageKm)),
-    };
+    const hv = headerValues(job, shift);
+    const vals = { ...hv, workDescription: Q.workDescription(shift), haulageKm: fmtNum(hv.haulageKm) };
     QTY.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
 
     const C = QTY.cols;
@@ -1037,7 +1176,7 @@ SOFTWARE.
     w.lines(q.comments, QTY.comments, 9);
 
     const cs = q.colasSign, cl = q.clientSign;
-    w.text(cs.name, ...QTY.colas.name, 9.5);
+    w.text(orDefault(cs.name, shift.completedBy), ...QTY.colas.name, 9.5);
     const csImg = await embedSignature(doc, cs.signature);
     if (csImg) w.image(csImg, QTY.colas.sign);
     w.text(SL.schema.formatDate(cs.date), ...QTY.colas.date, 9.5);
@@ -1053,7 +1192,12 @@ SOFTWARE.
 
   function diagramPages(shift) {
     const d = SL.forms.diagram.ensure(shift);
-    return d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
+    const pages = d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
+    const extra = d.pages.flatMap((p, k) => (p.legends || []).slice(2).map((lg, j) => ({ page: k, lg, i: j + 2 })));
+    for (let k = 0; k < extra.length; k += LEG_EXTRA.rows) {
+      pages.push({ template: 'legendsExtra', draw: drawLegendsExtra, items: extra.slice(k, k + LEG_EXTRA.rows) });
+    }
+    return pages;
   }
 
   // One table row of MSF28-10 (truck and / or reading)
@@ -1084,7 +1228,7 @@ SOFTWARE.
   async function drawTraceability(doc, page, fonts, job, shift, entry) {
     const w = writer(page, fonts);
     const t = SL.forms.traceability.ensure(shift);
-    const hv = headerValues(job, shift, t);
+    const hv = headerValues(job, shift);
     TRACE.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
     w.text(shift.weather, ...TRACE.weather);
     w.text(fmtNum(t.tackRate.litres), ...TRACE.tackLitres, { align: 'center' });
@@ -1159,15 +1303,18 @@ SOFTWARE.
       bold: await doc.embedFont(StandardFonts.HelveticaBold),
     };
     const plan = packPlan(job, shift);
-    const copied = await doc.copyPages(src, plan.map((p) => TEMPLATES[p.template].index));
+    // Template pages are copied from the official PDF; extra legend pages are blank A4
+    const withTpl = plan.filter((p) => TEMPLATES[p.template].index !== null);
+    const copied = await doc.copyPages(src, withTpl.map((p) => TEMPLATES[p.template].index));
     const pages = [];
+    let c = 0;
     for (let i = 0; i < plan.length; i++) {
-      const page = doc.addPage(copied[i]);
+      const page = TEMPLATES[plan[i].template].index !== null ? doc.addPage(copied[c++]) : doc.addPage([595.32, 841.92]);
       await plan[i].draw(doc, page, fonts, job, shift, plan[i], i, plan.length);
       pages.push(page);
     }
     paginate(pages, plan, fonts);
-    const title = `Lotpack – ${job.projectTitle || job.jobNumber || 'Job'} – ${SL.schema.formatDate(shift.date)}`;
+    const title = `Lotpack – ${[job.jobNumber, job.projectTitle].filter(Boolean).join(' ') || 'Job'} – ${SL.schema.formatDate(shift.date)}`;
     doc.setTitle(title);
     doc.setCreator('Strata Lotpack');
     doc.setProducer('Strata Lotpack');
@@ -1198,16 +1345,30 @@ SOFTWARE.
   const baseName = (job, shift) => `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}`;
   const jsonName = (job, shift) => `${baseName(job, shift)}.json`;
 
-  // Subject: "Lotpack – <date of the lotpack>" (DD/MM/YYYY)
+  const dayNight = (shift) => (shift.shiftType === 'night' ? 'Night' : 'Day');
+  const jobLabel = (job) => [job.jobNumber, job.projectTitle].filter(Boolean).join(' ');
+
+  // Default subject: "Lotpack – <Job Number> <Project> – <date of the lotpack> (<Day/Night>)"; editable before sending
   function subject(job, shift) {
-    return `Lotpack – ${formatDate(shift.date)}`.trim();
+    return ['Lotpack', jobLabel(job), `${formatDate(shift.date)} (${dayNight(shift)})`].filter(Boolean).join(' – ');
   }
 
-  // Generic English body; an empty field is left out
+  // Sheets in the PDF, in pack order
+  function sheetsIncluded(shift) {
+    const pages = (shift.diagram && shift.diagram.pages) || [];
+    const list = ['Approval to Proceed (MSF28-6)', `Site Diagram (MSF28-7)${pages.length > 1 ? ` – ${pages.length} drawing pages` : ''}`, 'Asphalt Traceability (MSF28-10)'];
+    (shift.dipRecords || []).forEach((r, i) => list.push(`Pavement Measured Dip Record ${i + 1} (MSF28-9)`));
+    (shift.surveys || []).forEach((r, i) => list.push(`Survey Record ${i + 1} (MSF28-12)`));
+    list.push('Quantity & Placement Agreement (MSF28-11)');
+    return list;
+  }
+
+  // Default body (English): job, shift, date, sheets included, attachments; editable before sending
   function body(job, shift, files) {
     const date = formatDate(shift.date);
-    const what = [job.projectTitle, date].filter(Boolean).join(' – ');
-    const lines = ['Hi,', '', `Please find attached the lot pack${what ? ` for ${what}` : ''}.`, ''];
+    const what = [jobLabel(job), `${date} (${dayNight(shift)} shift)`].filter(Boolean).join(' – ');
+    const lines = ['Hi,', '', `Please find attached the lot pack for ${what}.`, ''];
+    lines.push('Sheets included:', ...sheetsIncluded(shift).map((n) => `- ${n}`), '');
     const names = (files || []).filter(Boolean);
     if (names.length) lines.push('Attachments:', ...names.map((n) => `- ${n}`), '');
     lines.push('Regards,');
@@ -1293,7 +1454,7 @@ SOFTWARE.
   }
 
   SL.mail = {
-    isEmail, subject, body, shiftJson, jsonName, prepare, canShareFiles, share, mailto, mailtoUrl,
+    isEmail, subject, body, sheetsIncluded, shiftJson, jsonName, prepare, canShareFiles, share, mailto, mailtoUrl,
     recipientsText, logDraft, isoLocal,
     _open: (url) => { window.location.href = url; },
   };
@@ -1434,6 +1595,68 @@ SOFTWARE.
   }
 
   SL.io = { exportAll, exportJob, parse, plan, apply, download, jobLabel };
+})(window.SL = window.SL || {});
+</script>
+  <script>/* core/pwa.js */
+/* Installed app (PWA): registers the service worker when the app is served over https
+   (GitHub Pages) and shows "Update available – Reload" when a new version is ready.
+   Opened as a local file, nothing happens here. */
+(function (SL) {
+  'use strict';
+
+  const served = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const state = { registration: null, reloadAsked: false };
+
+  function showUpdate(worker) {
+    if (document.querySelector('.update-bar')) return;
+    const bar = document.createElement('div');
+    bar.className = 'update-bar';
+    bar.setAttribute('role', 'status');
+    const msg = document.createElement('span');
+    msg.textContent = 'Update available';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn primary';
+    btn.textContent = 'Reload';
+    btn.addEventListener('click', async () => {
+      if (SL.db) await SL.db.flush(); // keep the last typing
+      state.reloadAsked = true;
+      worker.postMessage('skipWaiting');
+    });
+    bar.append(msg, btn);
+    document.body.appendChild(bar);
+  }
+
+  async function register() {
+    if (!served || !('serviceWorker' in navigator)) return;
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      state.registration = reg;
+      const watch = (w) => {
+        if (!w) return;
+        w.addEventListener('statechange', () => {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdate(w);
+        });
+      };
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdate(reg.waiting);
+      watch(reg.installing);
+      reg.addEventListener('updatefound', () => watch(reg.installing));
+      // reload only when the user asked for the new version (not on the first install)
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading || !state.reloadAsked) return;
+        reloading = true;
+        location.reload();
+      });
+      // look for a new version when the app comes back to the screen
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    } catch (e) {
+      console.warn('Service worker not registered:', e.message);
+    }
+  }
+
+  SL.pwa = { served, register, state };
+  window.addEventListener('load', register);
 })(window.SL = window.SL || {});
 </script>
   <script>/* ui/components.js */
@@ -1716,14 +1939,16 @@ SOFTWARE.
   // Sketch pad for the site diagram. Strokes are vectors in grid-relative units
   // (x, y from 0 to 1 of the printed grid area), so the PDF redraws them exactly.
   // stroke = { c: '#rrggbb', w: width as a fraction of the grid width, p: [[x, y], ...] }
+  // Zoom: pinch with two fingers (or + / − / Fit); one finger, the stylus or the mouse draws.
+  // The line keeps the same thickness on screen whatever the zoom (stored width = width / zoom).
   // ---------------------------------------------------------------------
-  const COLORS = [['#111111', 'Black'], ['#1f4fd1', 'Blue'], ['#d11f1f', 'Red'], ['#16893a', 'Green'], ['#e07b00', 'Orange']];
   const WIDTHS = [[0.0022, 'Thin'], [0.0045, 'Medium'], [0.009, 'Thick']];
-  const tool = { mode: 'pen', color: COLORS[0][0], width: WIDTHS[1][0] }; // shared between pages
+  const tool = { mode: 'pen', color: '#d11f1f', width: WIDTHS[0][0] }; // shared between pages
+  const ZMAX = 8;
 
-  // page.strokes is edited in place; aspect = grid width / height; cells = grid squares across
-  function sketchPad(page, aspect, cells, onChange) {
+  function sketchPad(page, aspect, cells, onChange, opts = {}) {
     page.strokes = page.strokes || [];
+    const palette = opts.palette || ['#111111', '#1f4fd1', '#d11f1f', '#16893a', '#e07b00'];
     const undo = [];
     const redo = [];
     const bg = h('canvas', { class: 'sk-layer', 'aria-hidden': 'true' });
@@ -1731,37 +1956,49 @@ SOFTWARE.
     const box = h('div', { class: 'sk-box', style: `aspect-ratio: ${aspect}; --ar: ${aspect}` }, bg, fg);
     const bctx = bg.getContext('2d');
     const ctx = fg.getContext('2d');
-    let W = 0, H = 0;
+    let W = 0, H = 0, dpr = 1;
+    const view = { z: 1, tx: 0, ty: 0 }; // screen = grid * (W*z, H*z) + (tx, ty)
+
+    function clampView() {
+      view.z = Math.min(ZMAX, Math.max(1, view.z));
+      view.tx = Math.min(0, Math.max(W - W * view.z, view.tx));
+      view.ty = Math.min(0, Math.max(H - H * view.z, view.ty));
+    }
 
     function resize() {
       const r = box.getBoundingClientRect();
       if (!r.width) return;
-      const dpr = window.devicePixelRatio || 1;
+      // keep the same part of the drawing in view when the size changes
+      const cx = W ? (W / 2 - view.tx) / (W * view.z) : 0.5, cy = H ? (H / 2 - view.ty) / (H * view.z) : 0.5;
+      dpr = window.devicePixelRatio || 1;
       W = r.width; H = r.height;
       [bg, fg].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
-      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawGrid();
+      view.tx = W / 2 - cx * W * view.z; view.ty = H / 2 - cy * H * view.z;
+      clampView();
       redraw();
     }
 
+    const setT = (c) => c.setTransform(dpr * view.z, 0, 0, dpr * view.z, dpr * view.tx, dpr * view.ty);
+
     // Paper-like grid, same squares as the printed sheet
     function drawGrid() {
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
       bctx.fillStyle = '#ffffff';
-      bctx.fillRect(0, 0, W, H);
+      bctx.fillRect(0, 0, bg.width, bg.height);
+      setT(bctx);
       const step = W / cells;
       bctx.strokeStyle = '#c9ced6';
-      bctx.lineWidth = 1;
-      bctx.setLineDash([3, 2]);
+      bctx.lineWidth = 1 / view.z;
+      bctx.setLineDash([3 / view.z, 2 / view.z]);
       bctx.beginPath();
-      for (let x = step; x < W - 1; x += step) { bctx.moveTo(Math.round(x) + 0.5, 0); bctx.lineTo(Math.round(x) + 0.5, H); }
-      for (let y = step; y < H - 1; y += step) { bctx.moveTo(0, Math.round(y) + 0.5); bctx.lineTo(W, Math.round(y) + 0.5); }
+      for (let x = step; x < W - 0.5; x += step) { bctx.moveTo(x, 0); bctx.lineTo(x, H); }
+      for (let y = step; y < H - 0.5; y += step) { bctx.moveTo(0, y); bctx.lineTo(W, y); }
       bctx.stroke();
       bctx.setLineDash([]);
     }
 
     function drawStroke(c, s) {
-      const lw = Math.max(1, s.w * W);
+      const lw = Math.max(1 / view.z, s.w * W);
       c.strokeStyle = s.c; c.fillStyle = s.c; c.lineWidth = lw;
       c.lineCap = 'round'; c.lineJoin = 'round';
       if (s.p.length === 1) {
@@ -1775,24 +2012,27 @@ SOFTWARE.
     }
 
     function redraw() {
-      ctx.clearRect(0, 0, W, H);
+      drawGrid();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, fg.width, fg.height);
+      setT(ctx);
       page.strokes.forEach((s) => drawStroke(ctx, s));
       syncButtons();
     }
 
+    // Screen point -> grid-relative point (0..1)
     const pos = (e) => {
       const r = fg.getBoundingClientRect();
-      const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 10000) / 10000;
-      return [q((e.clientX - r.left) / r.width), q((e.clientY - r.top) / r.height)];
+      const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 100000) / 100000;
+      return [q((e.clientX - r.left - view.tx) / (W * view.z)), q((e.clientY - r.top - view.ty) / (H * view.z))];
     };
 
-    // Stroke eraser: removes every stroke passing near the pointer
+    // Stroke eraser: removes every stroke passing near the pointer (radius constant on screen)
     function hits(s, [x, y]) {
-      const rad = 0.012 + s.w / 2;
-      const ar = aspect; // compare distances in grid-width units
+      const rad = 0.012 / view.z + s.w / 2;
       const near = (a, b) => {
-        const dx = (b[0] - a[0]), dy = (b[1] - a[1]) / ar;
-        const px = (x - a[0]), py = (y - a[1]) / ar;
+        const dx = (b[0] - a[0]), dy = (b[1] - a[1]) / aspect;
+        const px = (x - a[0]), py = (y - a[1]) / aspect;
         const len = dx * dx + dy * dy;
         const t = len ? Math.max(0, Math.min(1, (px * dx + py * dy) / len)) : 0;
         const ex = px - t * dx, ey = py - t * dy;
@@ -1805,19 +2045,48 @@ SOFTWARE.
 
     let current = null; // stroke being drawn
     let erased = null;  // [[index, stroke]] removed by this eraser drag
+    const touches = new Map(); // pointerId -> {x, y} for pinch
+    let pinch = null;
 
     function eraseAt(pt) {
       for (let i = page.strokes.length - 1; i >= 0; i--) {
-        if (hits(page.strokes[i], pt)) {
-          erased.push([i, page.strokes[i]]);
-          page.strokes.splice(i, 1);
-        }
+        if (hits(page.strokes[i], pt)) { erased.push([i, page.strokes[i]]); page.strokes.splice(i, 1); }
       }
+    }
+
+    function startPinch() {
+      const [a, b] = Array.from(touches.values());
+      const r = fg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: view.z, gx: (mx - view.tx) / (W * view.z), gy: (my - view.ty) / (H * view.z) };
+    }
+    function movePinch() {
+      const [a, b] = Array.from(touches.values());
+      const r = fg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      view.z = pinch.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0);
+      view.z = Math.min(ZMAX, Math.max(1, view.z));
+      view.tx = mx - pinch.gx * W * view.z;
+      view.ty = my - pinch.gy * H * view.z;
+      clampView();
+      redraw();
+      syncZoom();
     }
 
     fg.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       fg.setPointerCapture(e.pointerId);
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) {
+          // second finger: this is a pinch, not a stroke
+          current = null; erased = null;
+          redraw();
+          startPinch();
+          return;
+        }
+        if (touches.size > 2) return;
+      }
       const pt = pos(e);
       if (tool.mode === 'eraser') {
         erased = [];
@@ -1825,10 +2094,12 @@ SOFTWARE.
         redraw();
         return;
       }
-      current = { c: tool.color, w: tool.width, p: [pt] };
+      current = { c: tool.color, w: Math.round((tool.width / view.z) * 1e6) / 1e6, p: [pt] };
       drawStroke(ctx, current);
     });
     fg.addEventListener('pointermove', (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch) { if (touches.size >= 2) movePinch(); return; }
       if (!current && !erased) return;
       e.preventDefault();
       const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -1841,14 +2112,16 @@ SOFTWARE.
       events.forEach((ev) => {
         const pt = pos(ev);
         const last = current.p[current.p.length - 1];
-        if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 0.0015) return;
+        if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 0.0015 / view.z) return;
         current.p.push(pt);
-        ctx.strokeStyle = current.c; ctx.lineWidth = Math.max(1, current.w * W);
+        ctx.strokeStyle = current.c; ctx.lineWidth = Math.max(1 / view.z, current.w * W);
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); ctx.moveTo(last[0] * W, last[1] * H); ctx.lineTo(pt[0] * W, pt[1] * H); ctx.stroke();
       });
     });
-    const end = () => {
+    const end = (e) => {
+      touches.delete(e.pointerId);
+      if (pinch) { if (touches.size < 2) pinch = null; return; }
       if (current) {
         page.strokes.push(current);
         undo.push({ type: 'add', stroke: current });
@@ -1887,6 +2160,14 @@ SOFTWARE.
       redraw();
       onChange();
     };
+    // Zoom buttons: around the centre of the view
+    const zoomBy = (k) => {
+      const gx = (W / 2 - view.tx) / (W * view.z), gy = (H / 2 - view.ty) / (H * view.z);
+      view.z = Math.min(ZMAX, Math.max(1, view.z * k));
+      view.tx = W / 2 - gx * W * view.z; view.ty = H / 2 - gy * H * view.z;
+      clampView(); redraw(); syncZoom();
+    };
+    const fit = () => { view.z = 1; view.tx = 0; view.ty = 0; redraw(); syncZoom(); };
 
     // Toolbar
     const tb = {};
@@ -1903,10 +2184,16 @@ SOFTWARE.
       tb.redo.disabled = !redo.length;
       tb.clear.disabled = !page.strokes.length;
     }
+    function syncZoom() {
+      if (!tb.zoom) return;
+      tb.zoom.textContent = `${Math.round(view.z * 100)} %`;
+      tb.zout.disabled = view.z <= 1;
+      tb.zin.disabled = view.z >= ZMAX;
+    }
     tb.pen = h('button', { type: 'button', class: 'tool', onclick: () => { tool.mode = 'pen'; sync(); } }, 'Pen');
     tb.eraser = h('button', { type: 'button', class: 'tool', onclick: () => { tool.mode = 'eraser'; sync(); } }, 'Eraser');
-    tb.colors = COLORS.map(([c, name]) => h('button', {
-      type: 'button', class: 'tool swatch', title: name, 'aria-label': name, dataset: { color: c },
+    tb.colors = palette.map((c) => h('button', {
+      type: 'button', class: 'tool swatch', title: c, 'aria-label': `Colour ${c}`, dataset: { color: c },
       style: `--sw:${c}`, onclick: () => { tool.color = c; tool.mode = 'pen'; sync(); },
     }));
     tb.widths = WIDTHS.map(([w, name]) => h('button', {
@@ -1916,8 +2203,14 @@ SOFTWARE.
     tb.undo = h('button', { type: 'button', class: 'tool', onclick: doUndo }, 'Undo');
     tb.redo = h('button', { type: 'button', class: 'tool', onclick: doRedo }, 'Redo');
     tb.clear = h('button', { type: 'button', class: 'tool danger', onclick: doClear }, 'Clear');
+    tb.zout = h('button', { type: 'button', class: 'tool', 'aria-label': 'Zoom out', onclick: () => zoomBy(1 / 1.5) }, '−');
+    tb.zin = h('button', { type: 'button', class: 'tool', 'aria-label': 'Zoom in', onclick: () => zoomBy(1.5) }, '+');
+    tb.fit = h('button', { type: 'button', class: 'tool', onclick: fit }, 'Fit');
+    tb.zoom = h('span', { class: 'zoom-label', 'aria-live': 'polite' });
+    if (!palette.includes(tool.color)) tool.color = palette[0];
     sync();
     syncButtons();
+    syncZoom();
 
     requestAnimationFrame(resize);
     new ResizeObserver(() => resize()).observe(box);
@@ -1926,18 +2219,18 @@ SOFTWARE.
       h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
       h('div', { class: 'tgroup' }, tb.colors),
       h('div', { class: 'tgroup' }, tb.widths),
-      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear));
+      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear),
+      h('div', { class: 'tgroup' }, tb.zout, tb.zoom, tb.zin, tb.fit));
     const root = h('div', { class: 'sk' }, tools, box);
 
     // Full screen: button in the top-right corner of the drawing area; same button (or Esc) to come back.
-    // Strokes are grid-relative, so they stay in place whatever the size.
     const expand = h('button', { type: 'button', class: 'sk-expand' });
     const setExpandLabel = (full) => {
       expand.textContent = full ? '⤡' : '⤢';
       expand.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen drawing');
       expand.title = full ? 'Exit full screen' : 'Full screen drawing';
     };
-    function fit() {
+    function fitBox() {
       if (!root.classList.contains('full')) { box.style.width = ''; return; }
       const cs = getComputedStyle(root);
       const availW = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
@@ -1949,14 +2242,18 @@ SOFTWARE.
       root.classList.toggle('full', on);
       document.documentElement.classList.toggle('sk-lock', on);
       setExpandLabel(on);
-      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fit); }
-      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); }
-      fit();
+      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fitBox); }
+      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fitBox); }
+      fitBox();
       if (!on) box.scrollIntoView({ block: 'nearest' });
     }
     expand.addEventListener('click', () => toggleFull());
     setExpandLabel(false);
     box.appendChild(expand);
+
+    // Pen colour set from outside (legend key)
+    root.setColor = (c) => { tool.color = c; tool.mode = 'pen'; sync(); };
+    root.view = view;
     return root;
   }
 
@@ -2033,26 +2330,18 @@ SOFTWARE.
         }
         save();
       };
+      // COLAS name prefilled with the shift's Completed by (typing replaces it)
+      const nameField = who === 'COLAS'
+        ? SL.ui.computed('COLAS Representative Name', s, 'name', () => shift.completedBy, save)
+        : field(`${who} Representative Name`, s, 'name', save);
       return h('div', { class: 'grid' },
-        field(`${who} Representative Name`, s, 'name', save),
+        nameField,
         extra,
         dt,
         h('div', { class: 'field span-all' }, h('label', {}, 'Signature'), SL.canvas.signaturePad(s, 'signature', onSign, `${who} signature`)));
     };
 
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', a, 'client', job.client, save),
-          headerField('Date', a, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', a, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', a, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', a, 'suburb', job.suburb, save),
-          headerField('Product', a, 'product', shift.product, save),
-          headerField('Nominated Layer Thickness (mm)', a, 'nominatedThickness', shift.nominatedThickness, save, { inputmode: 'decimal', number: true }))),
-
       h('section', { class: 'block' },
         h('h3', {}, 'Type of work'),
         h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save))),
@@ -2087,58 +2376,51 @@ SOFTWARE.
 })(window.SL = window.SL || {});
 </script>
   <script>/* forms/diagram.js */
-/* MSF28-7 — Site Diagram. Page 1 = header + grid + legends; each added page = grid + its own legends */
+/* MSF28-7 — Site Diagram.
+   No header / type of work / Completed by on the sheet: they come from Job and Shift details.
+   Each drawing page has its sketch and a list of legends (Legend 1 at first, + adds more).
+   A legend's Key is a colour, also the pen colour of that legend. */
 (function (SL) {
   'use strict';
-  const { h, field, headerField, multi, button } = SL.ui;
+  const { h, field, computed, button } = SL.ui;
+  const { PALETTE } = SL.schema;
 
-  const WORK_TYPES = [
-    ['supplyLay', 'Supply & Lay'], ['profileFill', 'Profile & Fill'], ['keyOverlay', 'Key & Overlay'],
-    ['profilePatch', 'Profile & Patch'], ['repairWorks', 'Repair Works'], ['other', 'OTHER'],
-  ];
   // Printed grid areas (pt) of the two templates: first page and added page
   const GRID = {
     first: { w: 545.0, h: 612.9 },
     more: { w: 545.0, h: 681.9 },
     cell: 13.93,
   };
-  const LEGEND_KEYS = ['key', 'mix', 'layer', 'depth', 'area', 'tonnes'];
+  const LAYERS = [['base', 'Base'], ['intermediate', 'Intermediate'], ['wearing', 'Wearing'], ['correction', 'Correction'], ['other', 'Other']];
 
-  const blankLegend = () => ({ key: '', mix: '', layer: '', depth: '', area: '', tonnes: '' });
-  const newPage = () => ({ strokes: [], legends: [blankLegend(), blankLegend()], completedBy: '' });
+  const typed = (v) => v !== null && v !== undefined && v !== '';
+
+  function newLegend(used) {
+    const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[used.length % PALETTE.length];
+    return { color, mix: null, layer: null, depth: null, area: null, tonnes: null };
+  }
+  const newPage = () => ({ strokes: [], legends: [newLegend([])] });
 
   function ensure(shift) {
     const d = shift.diagram = shift.diagram || {};
-    d.header = d.header || {};
     d.pages = d.pages || [];
     if (!d.pages.length) d.pages.push(newPage());
     d.pages.forEach((p) => {
       p.strokes = p.strokes || [];
-      p.legends = p.legends && p.legends.length === 2 ? p.legends : [blankLegend(), blankLegend()];
-      if (p.completedBy === undefined) p.completedBy = '';
+      p.legends = Array.isArray(p.legends) ? p.legends : [];
+      if (!p.legends.length) p.legends.push(newLegend([]));
     });
     return d;
   }
 
-  const legendFilled = (l) => LEGEND_KEYS.some((k) => l[k] !== '' && l[k] !== null && l[k] !== undefined);
+  const legendFilled = (l) => typed(l.mix) || typed(l.area) || typed(l.tonnes) || typed(l.depth) || Array.isArray(l.layer);
 
   function status(job, shift) {
     const pages = (shift.diagram && shift.diagram.pages) || [];
     const used = pages.filter((p) => (p.strokes || []).length || (p.legends || []).some(legendFilled));
     if (!used.length) return 'empty';
-    const done = pages.every((p) => (p.strokes || []).length && (p.legends || []).some(legendFilled));
+    const done = pages.every((p) => (p.strokes || []).length && (p.legends || []).some((l) => typed(l.area) || typed(l.tonnes)));
     return done ? 'complete' : 'progress';
-  }
-
-  function legendBlock(title, l, save) {
-    return h('fieldset', { class: 'legend' }, h('legend', {}, title),
-      h('div', { class: 'grid' },
-        field('Key', l, 'key', save),
-        field('Mix', l, 'mix', save),
-        field('Layer', l, 'layer', save),
-        field('Depth', l, 'depth', save),
-        field('Area (m²)', l, 'area', save, { type: 'number' }),
-        field('Tonnes', l, 'tonnes', save, { type: 'number' })));
   }
 
   const current = {}; // shift id -> open page index
@@ -2147,18 +2429,57 @@ SOFTWARE.
     const d = ensure(shift);
     const root = h('div', { class: 'sheet' });
 
+    function legendBlock(page, lg, i, redraw, setPen) {
+      // Key: colour of the legend, tap a colour to change it; "Draw" takes it as pen colour
+      const keyRow = h('div', { class: 'key-row' }, PALETTE.map((c) => h('button', {
+        type: 'button', class: `tool swatch${lg.color === c ? ' on' : ''}`, style: `--sw:${c}`,
+        'aria-label': `Legend ${i + 1} colour ${c}`, 'aria-pressed': lg.color === c ? 'true' : 'false',
+        onclick: () => { lg.color = c; save(); setPen(c); redraw(); },
+      })), button('Draw with this colour', () => setPen(lg.color)));
+
+      // Layer: ticked like the Approval (shift layer) until changed here
+      const layerNow = () => (Array.isArray(lg.layer) ? lg.layer : (shift.layer || []));
+      const layerBox = h('div', { class: 'choice' }, LAYERS.map(([k, l]) => {
+        const input = h('input', { type: 'checkbox', checked: layerNow().includes(k) });
+        input.addEventListener('change', () => {
+          const set = new Set(layerNow());
+          if (input.checked) set.add(k); else set.delete(k);
+          lg.layer = Array.from(set);
+          save();
+        });
+        return h('label', { class: 'chk' }, input, h('span', {}, l));
+      }));
+
+      const del = i > 0 ? button('Remove', () => {
+        if (!confirm(`Remove legend ${i + 1}?`)) return;
+        page.legends.splice(i, 1);
+        save();
+        redraw();
+      }, 'danger') : null;
+
+      return h('fieldset', { class: 'legend', style: `--lg:${lg.color}` },
+        h('legend', {}, h('i', { class: 'lg-dot' }), `Legend ${i + 1}`),
+        h('div', { class: 'field' }, h('label', {}, 'Key (colour)'), keyRow),
+        h('div', { class: 'grid' },
+          computed('Mix', lg, 'mix', () => shift.product, save),
+          computed('Depth (mm)', lg, 'depth', () => shift.nominatedThickness, save, { number: true }),
+          field('Area (m²)', lg, 'area', save, { type: 'number' }),
+          field('Tonnes', lg, 'tonnes', save, { type: 'number' })),
+        h('div', { class: 'field' }, h('label', {}, 'Layer'), layerBox),
+        del ? h('div', { class: 'actions' }, del) : null);
+    }
+
     function draw() {
-      let i = Math.min(current[shift.id] || 0, d.pages.length - 1);
+      const i = Math.min(current[shift.id] || 0, d.pages.length - 1);
       current[shift.id] = i;
       const page = d.pages[i];
-      const first = i === 0;
-      const g = first ? GRID.first : GRID.more;
+      const g = i === 0 ? GRID.first : GRID.more;
 
       const pageTabs = h('div', { class: 'tabs page-tabs', role: 'tablist', 'aria-label': 'Drawing pages' },
         d.pages.map((p, k) => h('button', {
           type: 'button', role: 'tab', class: `tab${k === i ? ' active' : ''}`, 'aria-selected': k === i ? 'true' : 'false',
           onclick: () => { current[shift.id] = k; draw(); },
-        }, `Page ${k + 1}`, h('small', {}, k === 0 ? 'with header' : 'added'))),
+        }, `Page ${k + 1}`, h('small', {}, k === 0 ? 'first page' : 'added'))),
         button('+ Add drawing page', () => {
           d.pages.push(newPage());
           current[shift.id] = d.pages.length - 1;
@@ -2166,7 +2487,7 @@ SOFTWARE.
           draw();
         }));
 
-      const delPage = !first ? button('Delete this page', () => {
+      const delPage = i > 0 ? button('Delete this page', () => {
         if (!confirm(`Delete drawing page ${i + 1} with its legends?`)) return;
         d.pages.splice(i, 1);
         current[shift.id] = i - 1;
@@ -2174,28 +2495,26 @@ SOFTWARE.
         draw();
       }, 'danger') : null;
 
-      root.replaceChildren(
-        first ? h('section', { class: 'block' },
-          h('h3', {}, 'Header'),
-          h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-          h('div', { class: 'grid' },
-            headerField('Client', d, 'client', job.client, save),
-            headerField('Date', d, 'date', shift.date, save, { type: 'date' }),
-            headerField('Project Title', d, 'projectTitle', job.projectTitle, save),
-            headerField('Job Number', d, 'jobNumber', job.jobNumber, save),
-            headerField('Suburb', d, 'suburb', job.suburb, save)),
-          h('h3', {}, 'Type of work'),
-          h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save)))) : null,
+      const pad = SL.canvas.sketchPad(page, g.w / g.h, g.w / GRID.cell, save, { palette: PALETTE });
+      const legendsBox = h('div', { class: 'legends' });
+      const drawLegends = () => legendsBox.replaceChildren(...page.legends.map((lg, k) => legendBlock(page, lg, k, drawLegends, pad.setColor)));
+      drawLegends();
 
+      root.replaceChildren(
         h('section', { class: 'block' },
           h('div', { class: 'row-head' }, h('h3', {}, `Drawing — page ${i + 1} of ${d.pages.length}`), delPage),
           pageTabs,
-          SL.canvas.sketchPad(page, g.w / g.h, g.w / GRID.cell, save)),
-
+          pad),
         h('section', { class: 'block' },
-          h('h3', {}, `Legends — page ${i + 1}`),
-          h('div', { class: 'legends' }, legendBlock('Legend 1', page.legends[0], save), legendBlock('Legend 2', page.legends[1], save)),
-          h('div', { class: 'grid' }, headerField('Completed By', page, 'completedBy', shift.completedBy, save, { direct: true }))),
+          h('div', { class: 'row-head' }, h('h3', {}, `Legends — page ${i + 1}`),
+            button('+ Legend', () => {
+              page.legends.push(newLegend(page.legends.map((l) => l.color)));
+              save();
+              drawLegends();
+              pad.setColor(page.legends[page.legends.length - 1].color);
+            })),
+          h('p', { class: 'muted small' }, 'Mix, Depth and Layer come from the shift until you change them. Legends 1 and 2 print in the sheet; more legends print on an extra page.'),
+          legendsBox),
       );
     }
 
@@ -2204,7 +2523,7 @@ SOFTWARE.
   }
 
   SL.forms = SL.forms || {};
-  SL.forms.diagram = { render, status, ensure, GRID };
+  SL.forms.diagram = { render, status, ensure, GRID, newLegend };
 })(window.SL = window.SL || {});
 </script>
   <script>/* forms/traceability.js */
@@ -2408,55 +2727,77 @@ SOFTWARE.
       computeProgress(t);
       loadsBox.querySelectorAll('[data-progress]').forEach((el) => {
         const l = t.loads[Number(el.dataset.progress)];
-        el.textContent = l && l.progress !== null ? String(l.progress) : '';
+        el.textContent = l && l.progress !== null ? `${l.progress} T` : '';
       });
       lotFields.forEach((f) => f.refresh());
       save();
     };
 
-    function loadRow(l, i) {
-      const cells = LOAD_COLS.map(([k, label, type, w]) => {
+    // Collapsible truck row: folded = Load No, Docket No, Progress tonnes; open = every field
+    function loadRow(l, i, open) {
+      const sumNo = h('span', { class: 'sum-no' });
+      const sumDocket = h('span', { class: 'sum-docket' });
+      const sumProg = h('output', { class: 'calc sum-prog', dataset: { progress: String(i) } });
+      const refreshSum = () => {
+        sumNo.textContent = `Load ${l.no ?? '–'}`;
+        sumDocket.textContent = l.docket ? `Docket ${l.docket}` : 'No docket';
+        sumProg.textContent = l.progress !== null && l.progress !== undefined ? `${l.progress} T` : '';
+      };
+      refreshSum();
+      const onEdit = () => { changed(); refreshSum(); };
+      const cells = LOAD_COLS.filter(([, , type]) => type !== 'calc').map(([k, label, type, w]) => {
         if (type === 'calc') {
           return h('div', { class: `cell ${w}` }, h('span', { class: 'cell-label' }, label),
             h('output', { class: 'calc', dataset: { progress: String(i) } }, l.progress ?? ''));
         }
-        const f = field(label, l, k, changed, { type: type === 'time' ? 'time' : type });
+        const f = field(label, l, k, onEdit, { type: type === 'time' ? 'time' : type });
         f.className = `cell ${w}`;
         f.querySelector('label').className = 'cell-label';
         return f;
       });
       const del = h('button', {
-        type: 'button', class: 'icon-btn', 'aria-label': `Delete load ${l.no ?? i + 1}`, title: 'Delete row',
+        type: 'button', class: 'btn danger', 'aria-label': `Delete load ${l.no ?? i + 1}`,
         onclick: () => { if (confirm(`Delete load ${l.no ?? i + 1}?`)) { t.loads.splice(i, 1); drawLoads(); changed(); } },
-      }, '×');
-      return h('div', { class: 'trow' }, cells, del);
+      }, 'Delete load');
+      return h('details', { class: 'fold-row load-row', open: !!open },
+        h('summary', {}, sumNo, sumDocket, sumProg),
+        h('div', { class: 'trow' }, cells),
+        h('div', { class: 'actions' }, del));
     }
 
-    function drawLoads() {
-      loadsBox.replaceChildren(
-        h('div', { class: 'trow thead', 'aria-hidden': 'true' }, LOAD_COLS.map(([, label, , w]) => h('div', { class: `cell ${w}` }, label)), h('span', { class: 'icon-btn ghost' })),
-        ...(t.loads.length ? t.loads.map(loadRow) : [h('p', { class: 'empty' }, 'No truck yet.')]));
+    function drawLoads(openLast) {
+      loadsBox.replaceChildren(...(t.loads.length
+        ? t.loads.map((l, i) => loadRow(l, i, openLast && i === t.loads.length - 1))
+        : [h('p', { class: 'empty' }, 'No truck yet.')]));
     }
 
-    function readingRow(r, i) {
+    // Collapsible reading row: folded = time, wind, pavement temp
+    function readingRow(r, i, open) {
+      const sum = h('span', {});
+      const refreshSum = () => {
+        sum.textContent = `${r.time || '--:--'}  ·  Wind ${r.windKmh ?? '–'} km/h  ·  Pavement ${r.pavementTemp ?? '–'} °C`;
+      };
+      refreshSum();
       const f = (label, k, type) => {
-        const el = field(label, r, k, save, { type });
+        const el = field(label, r, k, () => { save(); refreshSum(); }, { type });
         el.className = 'cell w-s';
         el.querySelector('label').className = 'cell-label';
         return el;
       };
       const del = h('button', {
-        type: 'button', class: 'icon-btn', 'aria-label': `Delete reading ${r.time || i + 1}`, title: 'Delete reading',
+        type: 'button', class: 'btn danger', 'aria-label': `Delete reading ${r.time || i + 1}`,
         onclick: () => { t.envReadings.splice(i, 1); drawReadings(); save(); },
-      }, '×');
-      return h('div', { class: 'trow' }, f('Time', 'time', 'time'), f('Wind Velocity (km/h)', 'windKmh', 'number'), f('Pavement Temp (°C)', 'pavementTemp', 'number'), del);
+      }, 'Delete reading');
+      return h('details', { class: 'fold-row reading-row', open: !!open },
+        h('summary', {}, sum),
+        h('div', { class: 'trow' }, f('Time', 'time', 'time'), f('Wind Velocity (km/h)', 'windKmh', 'number'), f('Pavement Temp (°C)', 'pavementTemp', 'number')),
+        h('div', { class: 'actions' }, del));
     }
 
-    function drawReadings() {
-      readingsBox.replaceChildren(
-        h('div', { class: 'trow thead', 'aria-hidden': 'true' },
-          h('div', { class: 'cell w-s' }, 'Time'), h('div', { class: 'cell w-s' }, 'Wind Velocity (km/h)'), h('div', { class: 'cell w-s' }, 'Pavement Temp (°C)'), h('span', { class: 'icon-btn ghost' })),
-        ...(t.envReadings.length ? t.envReadings.map(readingRow) : [h('p', { class: 'empty' }, 'No reading yet.')]));
+    function drawReadings(openLast) {
+      readingsBox.replaceChildren(...(t.envReadings.length
+        ? t.envReadings.map((r, i) => readingRow(r, i, openLast && i === t.envReadings.length - 1))
+        : [h('p', { class: 'empty' }, 'No reading yet.')]));
     }
 
     const addLoad = () => {
@@ -2466,18 +2807,18 @@ SOFTWARE.
         docket: '', tonnes: null, progress: null, tipTime: hhmm(), temp: null,
         chStart: null, chEnd: null, run: last ? last.run : null, width: last ? last.width : null, comment: '',
       });
-      drawLoads();
+      drawLoads(true);
       changed();
-      const rows = loadsBox.querySelectorAll('.trow:not(.thead)');
+      const rows = loadsBox.querySelectorAll('.load-row');
       const row = rows[rows.length - 1];
       row.scrollIntoView({ block: 'center' });
       row.querySelector('input[data-key=docket]').focus();
     };
     const addReading = () => {
       t.envReadings.push({ time: hhmm(), windKmh: null, pavementTemp: null });
-      drawReadings();
+      drawReadings(true);
       save();
-      const rows = readingsBox.querySelectorAll('.trow:not(.thead)');
+      const rows = readingsBox.querySelectorAll('.reading-row');
       rows[rows.length - 1].querySelector('input[data-key=windKmh]').focus();
     };
 
@@ -2491,36 +2832,22 @@ SOFTWARE.
     ];
 
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', t, 'client', job.client, save),
-          headerField('Date', t, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', t, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', t, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', t, 'suburb', job.suburb, save),
-          field('Weather Conditions', shift, 'weather', save),
-          headerField('Product', t, 'product', shift.product, save),
-          headerField('Nominated Layer Thickness (mm)', t, 'nominatedThickness', shift.nominatedThickness, save, { inputmode: 'decimal', number: true }))),
+      h('details', { class: 'block fold', open: !shift.weather },
+        h('summary', {}, h('h3', {}, 'Weather conditions')),
+        h('div', { class: 'grid' }, field('Weather Conditions', shift, 'weather', save))),
 
-      h('section', { class: 'block' },
-        h('h3', {}, 'Tack coat & surface'),
+      h('details', { class: 'block fold' },
+        h('summary', {}, h('h3', {}, 'Tack coat & surface')),
         h('div', { class: 'grid' },
           field('Tack Coat Application Rate — Litres', t.tackRate, 'litres', save, { type: 'number' }),
           field('Tack Coat Application Rate — m²', t.tackRate, 'm2', save, { type: 'number' }),
           yesNo('Tack Coat Broken Before Paving?', t, 'tackBroken', save),
           yesNo('Existing Surface Clean, dry and free from loose material?', t, 'surfaceClean', save))),
 
-      h('section', { class: 'block' },
-        h('h3', {}, 'Type of work'),
-        h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save))),
-        h('h3', {}, 'Layer'),
-        h('div', { class: 'choice' }, LAYERS.map(([k, l]) => multi(l, shift, 'layer', k, save))),
-        h('p', { class: 'muted small' }, 'Paving should not commence without a signed Approval to Proceed/ Hold Point. Only 1 layer/ mix type per page or identify in comments.')),
+      h('p', { class: 'muted small' }, 'Paving should not commence without a signed Approval to Proceed/ Hold Point. Only 1 layer/ mix type per page or identify in comments. Type of work and layer: see Approval to Proceed.'),
 
       h('section', { class: 'block' },
-        h('div', { class: 'row-head' }, h('h3', {}, 'Trucks'), SL.ui.button('Add row', addLoad, 'primary')),
+        h('div', { class: 'row-head' }, h('h3', {}, 'Trucks'), SL.ui.button('Add load', addLoad, 'primary')),
         loadsBox),
 
       h('section', { class: 'block' },
@@ -2595,6 +2922,7 @@ SOFTWARE.
 
   function ensure(rec) {
     rec.header = rec.header || {};
+    if (!rec.date && rec.header.date) rec.date = rec.header.date; // older data: date was a header override
     rec.courses = rec.courses && rec.courses.length === 3 ? rec.courses : [blankBlock(), blankBlock(), blankBlock()];
     rec.courses.forEach((b) => {
       b.offsets = b.offsets || { l: null, c: null, r: null };
@@ -2750,13 +3078,11 @@ SOFTWARE.
       return h('div', { class: 'sheet' },
         h('section', { class: 'block' },
           h('h3', {}, 'Header'),
-          h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
+          h('p', { class: 'muted small' }, 'Client, project, job number and suburb come from Job and Shift details. Date and Mix type are prefilled from the shift and can be changed for this sheet only.'),
           h('div', { class: 'grid' },
-            headerField('Client', rec, 'client', job.client, save),
-            headerField('Date', rec, 'date', shift.date, save, { type: 'date' }),
-            headerField('Project Title', rec, 'projectTitle', job.projectTitle, save),
-            headerField('Job Number', rec, 'jobNumber', job.jobNumber, save),
-            field('Mix Type', rec, 'mixType', save),
+            // Date and Mix type prefilled from the shift; changing them here does not change the shift
+            headerField('Date', rec, 'date', shift.date, save, { type: 'date', direct: true }),
+            SL.ui.computed('Mix Type', rec, 'mixType', () => shift.product, save),
             field('Frequency of Testing', rec, 'frequency', save)),
           h('div', { class: 'grid' },
             oneOf('Existing Surface', rec, 'existingSurface', SURFACES, save),
@@ -2934,14 +3260,15 @@ SOFTWARE.
     return box;
   }
 
-  function signBlock(who, s, save, withPosition) {
+  function signBlock(who, s, save, withPosition, shift) {
     const dt = field('Date', s, 'date', save, { type: 'date' });
     const onSign = () => {
       if (s.signature && !s.date) { s.date = nowLocal().slice(0, 10); dt.querySelector('input').value = s.date; }
       save();
     };
     return h('div', { class: 'grid' },
-      field(`${who} Representative`, s, 'name', save),
+      // COLAS name prefilled with the shift's Completed by (typing replaces it)
+      who === 'COLAS' ? computed('COLAS Representative', s, 'name', () => shift.completedBy, save) : field(`${who} Representative`, s, 'name', save),
       withPosition ? field('Position', s, 'position', save) : null,
       dt,
       h('div', { class: 'field span-all' }, h('label', {}, 'Signature'), SL.canvas.signaturePad(s, 'signature', onSign, `${who} signature`)));
@@ -2950,18 +3277,7 @@ SOFTWARE.
   function render(job, shift, save) {
     const q = ensure(shift);
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', q, 'client', job.client, save),
-          headerField('Date', q, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', q, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', q, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', q, 'suburb', job.suburb, save),
-          computed('Work Description', q, 'workDescription', () => workDescription(shift), save),
-          headerField('Supplying Plant', q, 'supplyingPlant', job.supplyingPlant, save),
-          headerField('Haulage Distance (kms)', q, 'haulageKm', job.haulageKm, save, { inputmode: 'decimal', number: true }))),
+      h('p', { class: 'muted small' }, 'Header (client, project, job, suburb, supplying plant, haulage distance, work description) comes from Job and Shift details.'),
       h('section', { class: 'block' },
         h('h3', {}, 'Pay items'),
         h('p', { class: 'muted small' }, 'Grey values come from the traceability (first “Supply, Deliver, Lay”) or are calculated (Qty Used = QTY Delivered − Waste). Typing replaces them.'),
@@ -2975,10 +3291,10 @@ SOFTWARE.
       h('section', { class: 'block' },
         h('h3', {}, 'COLAS Representative'),
         h('p', { class: 'muted small' }, 'The below representatives agree & accept the measured quantities in the Quantity & Placement Agreement Sheet. Signing includes the acceptance of above products and services placed by COLAS.'),
-        signBlock('COLAS', q.colasSign, save, false)),
+        signBlock('COLAS', q.colasSign, save, false, shift)),
       h('section', { class: 'block' },
         h('h3', {}, 'Client Representative'),
-        signBlock('Client', q.clientSign, save, true)),
+        signBlock('Client', q.clientSign, save, true, shift)),
     );
   }
 
@@ -2995,7 +3311,7 @@ SOFTWARE.
   const { formatDate } = SL.schema;
   const app = document.getElementById('app');
 
-  const state = { settings: SL.schema.defaultSettings(), contacts: [], shiftTab: {} };
+  const state = { settings: SL.schema.defaultSettings(), contacts: [], shiftTab: {}, shiftDetailsOpen: {}, selection: null };
 
   // Base sheets of every shift, in PDF order. Optional sheets come in later steps.
   const SHEETS = [
@@ -3057,15 +3373,127 @@ SOFTWARE.
       go(`#/job/${job.id}`);
     };
 
+    const actions = {
+      open: (job) => go(`#/job/${job.id}`),
+      duplicate: async (job) => {
+        const copy = duplicateJob(job);
+        await SL.db.putJob(copy);
+        state.selection = { kind: 'job', id: copy.id };
+        renderJobs();
+      },
+      remove: async (job) => {
+        if (!confirm(`Delete job “${jobTitle(job)}” and its ${job.shifts.length} shift(s)? This cannot be undone.`)) return;
+        await SL.db.deleteJob(job.id);
+        renderJobs();
+      },
+    };
+
     app.replaceChildren(
       h('div', { class: 'row-head' }, h('h1', {}, 'Jobs'), button('New job', newJob, 'primary')),
       jobs.length
-        ? h('div', { class: 'cards' }, jobs.map((job) => h('a', { class: 'card', href: `#/job/${job.id}` },
+        ? h('div', { class: 'cards' }, jobs.map((job) => selectableCard('job', job, actions,
           h('div', { class: 'title' }, jobTitle(job)),
-          h('div', { class: 'meta' }, [job.jobNumber, job.client, job.suburb].filter(Boolean).join(' · ') || 'No details yet'),
+          h('div', { class: 'meta' }, [job.jobNumber, job.client].filter(Boolean).join(' · ') || 'No details yet'),
           h('div', { class: 'meta' }, `${job.shifts.length} shift${job.shifts.length === 1 ? '' : 's'}`))))
         : h('p', { class: 'empty' }, 'No jobs yet. Tap “New job” to start.'),
+      jobs.length ? h('p', { class: 'muted small' }, 'Tap a card to select it, double-tap (or Open) to open it. Right-click or long-press for Duplicate / Delete. Ctrl+C then Ctrl+V duplicates the selected card.') : null,
     );
+    bindClipboard(() => jobs, actions, 'job');
+  }
+
+  // ---- Selection, context menu, duplicate ------------------------------
+  // Deep copy with new ids; the send history and status start again
+  function cloneShift(s) {
+    const c = JSON.parse(JSON.stringify(s));
+    const t = SL.schema.nowIso();
+    c.id = SL.schema.uuid();
+    (c.dipRecords || []).forEach((r) => { r.id = SL.schema.uuid(); });
+    (c.surveys || []).forEach((r) => { r.id = SL.schema.uuid(); });
+    c.sendLog = [];
+    c.status = 'draft';
+    c.createdAt = t; c.updatedAt = t;
+    return c;
+  }
+  function duplicateJob(job) {
+    const c = JSON.parse(JSON.stringify(job));
+    const t = SL.schema.nowIso();
+    c.id = SL.schema.uuid();
+    c.projectTitle = `${job.projectTitle || jobTitle(job)} (copy)`;
+    c.shifts = job.shifts.map(cloneShift);
+    c.createdAt = t; c.updatedAt = t;
+    return c;
+  }
+
+  let menuEl = null;
+  function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  function openMenu(x, y, item, actions) {
+    closeMenu();
+    const act = (fn) => () => { closeMenu(); fn(item); };
+    menuEl = h('div', { class: 'ctx-menu', role: 'menu' },
+      h('button', { type: 'button', role: 'menuitem', onclick: act(actions.open) }, 'Open'),
+      h('button', { type: 'button', role: 'menuitem', onclick: act(actions.duplicate) }, 'Duplicate'),
+      h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: act(actions.remove) }, 'Delete'));
+    document.body.appendChild(menuEl);
+    const r = menuEl.getBoundingClientRect();
+    menuEl.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 8))}px`;
+    menuEl.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 8))}px`;
+    menuEl.querySelector('button').focus();
+  }
+
+  // Card of a job / shift: tap selects, double-tap or Open opens, right-click / long-press = menu
+  function selectableCard(kind, item, actions, ...content) {
+    const sel = () => state.selection && state.selection.kind === kind && state.selection.id === item.id;
+    const openBtn = h('button', { type: 'button', class: 'btn card-open', onclick: (e) => { e.stopPropagation(); actions.open(item); } }, 'Open');
+    const card = h('div', {
+      class: `card selectable${sel() ? ' selected' : ''}`, tabindex: '0', role: 'button',
+      'aria-pressed': sel() ? 'true' : 'false', dataset: { id: item.id },
+    }, ...content, openBtn);
+    const select = () => {
+      state.selection = { kind, id: item.id };
+      card.parentElement && card.parentElement.querySelectorAll('.card.selected').forEach((c) => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
+      card.classList.add('selected');
+      card.setAttribute('aria-pressed', 'true');
+    };
+    card.addEventListener('click', select);
+    card.addEventListener('dblclick', () => actions.open(item));
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') actions.open(item); });
+    card.addEventListener('contextmenu', (e) => { e.preventDefault(); select(); openMenu(e.clientX, e.clientY, item, actions); });
+    // long press on touch screens
+    let timer = null, start = null;
+    card.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      start = [e.clientX, e.clientY];
+      timer = setTimeout(() => { timer = null; select(); openMenu(start[0], start[1], item, actions); }, 550);
+    });
+    const cancel = (e) => { if (timer && (!e || !start || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 10)) { clearTimeout(timer); timer = null; } };
+    card.addEventListener('pointermove', cancel);
+    card.addEventListener('pointerup', () => { clearTimeout(timer); timer = null; });
+    card.addEventListener('pointercancel', () => { clearTimeout(timer); timer = null; });
+    return card;
+  }
+
+  // Ctrl+C / Ctrl+V on the selected card duplicates it (only while that list is on screen)
+  let clip = null;
+  let keyHandler = null;
+  function bindClipboard(list, actions, kind) {
+    if (keyHandler) document.removeEventListener('keydown', keyHandler);
+    const screen = app.firstChild;
+    keyHandler = (e) => {
+      if (!screen.isConnected) { document.removeEventListener('keydown', keyHandler); keyHandler = null; return; }
+      if (!(e.ctrlKey || e.metaKey) || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'c' && state.selection && state.selection.kind === kind) {
+        clip = { kind, id: state.selection.id };
+        e.preventDefault();
+      } else if (k === 'v' && clip && clip.kind === kind) {
+        const item = list().find((x) => x.id === clip.id);
+        if (item) { e.preventDefault(); actions.duplicate(item); }
+      }
+    };
+    document.addEventListener('keydown', keyHandler);
   }
 
   async function renderJob(jobId) {
@@ -3079,6 +3507,7 @@ SOFTWARE.
       job.shifts.push(shift);
       job.updatedAt = shift.createdAt;
       await SL.db.putJob(job);
+      state.shiftDetailsOpen[shift.id] = true; // a new shift opens with its details to check (date, day / night)
       go(`#/job/${job.id}/shift/${shift.id}`);
     };
 
@@ -3089,26 +3518,41 @@ SOFTWARE.
       go('#/');
     };
 
-    const shifts = job.shifts.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const shifts = job.shifts.slice().sort(SL.schema.shiftOrder);
+    const shiftActions = {
+      open: (s) => go(`#/job/${job.id}/shift/${s.id}`),
+      duplicate: async (s) => {
+        const copy = cloneShift(s);
+        job.shifts.push(copy);
+        SL.db.touch(job);
+        await SL.db.flush();
+        state.selection = { kind: 'shift', id: copy.id };
+        renderJob(job.id);
+      },
+      remove: async (s) => {
+        if (!confirm(`Delete the shift of ${formatDate(s.date)} (${s.shiftType === 'night' ? 'night' : 'day'})? This cannot be undone.`)) return;
+        job.shifts = job.shifts.filter((x) => x.id !== s.id);
+        SL.db.touch(job);
+        await SL.db.flush();
+        renderJob(job.id);
+      },
+    };
 
     app.replaceChildren(
       crumbs(h('a', { href: '#/' }, 'Jobs'), jobTitle(job)),
       titleEl,
-      h('section', { class: 'panel' },
-        h('h2', {}, 'Job details'),
+      h('details', { class: 'panel fold job-details', open: !(job.client || job.projectTitle || job.jobNumber) },
+        h('summary', {}, h('h2', {}, 'Job details'), h('span', { class: 'muted small fold-sum' }, [job.jobNumber, job.client].filter(Boolean).join(' · '))),
         h('div', { class: 'grid' },
           field('Client', job, 'client', save),
           field('Project Title', job, 'projectTitle', save),
-          field('Job Number', job, 'jobNumber', save),
-          field('Suburb', job, 'suburb', save),
-          field('Supplying Plant', job, 'supplyingPlant', save),
-          field('Haulage (km)', job, 'haulageKm', save, { type: 'number' }))),
+          field('Job Number', job, 'jobNumber', save))),
       h('section', { class: 'panel' },
         h('div', { class: 'row-head' }, h('h2', {}, 'Shifts'), button('New shift', newShift, 'primary')),
         shifts.length
-          ? h('div', { class: 'cards' }, shifts.map((s) => h('a', { class: 'card', href: `#/job/${job.id}/shift/${s.id}` },
-            h('div', { class: 'title' }, formatDate(s.date) || 'No date'),
-            h('div', { class: 'meta' }, [s.product, s.completedBy].filter(Boolean).join(' · ') || 'No details yet'),
+          ? h('div', { class: 'cards' }, shifts.map((s) => selectableCard('shift', s, shiftActions,
+            h('div', { class: 'title' }, `${formatDate(s.date) || 'No date'} · ${s.shiftType === 'night' ? 'Night' : 'Day'}`),
+            h('div', { class: 'meta' }, [s.suburb, s.product, s.completedBy].filter(Boolean).join(' · ') || 'No details yet'),
             h('div', { class: 'meta' }, lastSent(s) ? `Draft emailed ${fmtStamp(lastSent(s).sentAt)}` : 'Not sent yet'))))
           : h('p', { class: 'empty' }, 'No shifts yet. One shift = one lotpack.')),
       h('section', { class: 'panel' },
@@ -3133,6 +3577,7 @@ SOFTWARE.
         }),
         button('Delete job', delJob, 'danger')),
     );
+    bindClipboard(() => job.shifts, shiftActions, 'shift');
   }
 
   // Base sheets, then the optional Dip / Survey Records added to the shift (PDF order)
@@ -3162,8 +3607,12 @@ SOFTWARE.
     const job = await SL.db.getJob(jobId);
     const shift = job && job.shifts.find((s) => s.id === shiftId);
     if (!shift) return notFound('This shift no longer exists.');
-    const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = formatDate(shift.date) || 'No date'; };
-    const dateCrumb = h('span', {}, formatDate(shift.date) || 'No date');
+    const shiftLabel = () => `${formatDate(shift.date) || 'No date'} · ${shift.shiftType === 'night' ? 'Night' : 'Day'}`;
+    const sumEl = h('span', { class: 'muted small fold-sum' });
+    const refreshSum = () => { sumEl.textContent = [shiftLabel(), shift.suburb, shift.product, shift.completedBy].filter(Boolean).join(' · '); };
+    const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = shiftLabel(); refreshSum(); };
+    const dateCrumb = h('span', {}, shiftLabel());
+    refreshSum();
 
     const F = SL.forms || {};
     const sheets = sheetList(shift);
@@ -3223,10 +3672,19 @@ SOFTWARE.
 
     app.replaceChildren(
       crumbs(h('a', { href: '#/' }, 'Jobs'), h('a', { href: `#/job/${job.id}` }, jobTitle(job)), dateCrumb),
-      h('section', { class: 'panel shift-details' },
-        h('h2', {}, 'Shift'),
+      h('details', { class: 'panel fold shift-details', open: state.shiftDetailsOpen[shift.id] ?? !shift.product,
+        ontoggle: (e) => { state.shiftDetailsOpen[shift.id] = e.target.open; } },
+        h('summary', {}, h('h2', {}, 'Shift details'), sumEl),
         h('div', { class: 'grid' },
           field('Date', shift, 'date', save, { type: 'date' }),
+          h('div', { class: 'field' }, h('label', {}, 'Shift'), h('div', { class: 'choice' }, [['day', 'Day'], ['night', 'Night']].map(([v, l]) => {
+            const input = h('input', { type: 'radio', name: `st-${shift.id}`, value: v, checked: (shift.shiftType || 'day') === v });
+            input.addEventListener('change', () => { shift.shiftType = v; save(); });
+            return h('label', { class: 'chk' }, input, h('span', {}, l));
+          }))),
+          field('Suburb', shift, 'suburb', save),
+          field('Supplying Plant', shift, 'supplyingPlant', save),
+          field('Haulage (km)', shift, 'haulageKm', save, { type: 'number' }),
           field('Product', shift, 'product', save),
           field('Nominated thickness (mm)', shift, 'nominatedThickness', save, { type: 'number' }),
           field('Completed by', shift, 'completedBy', save))),
@@ -3244,6 +3702,11 @@ SOFTWARE.
         button('Preview PDF', () => previewPdf(job, shift)),
         button('Delete shift', delShift, 'danger')),
     );
+    // Sheet tab bar: the open tab stays centred and visible (the bar does not jump back to the start)
+    requestAnimationFrame(() => {
+      const act = tabs.querySelector('.tab.active');
+      if (act) tabs.scrollLeft = act.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - act.offsetWidth) / 2;
+    });
   }
 
   // ---- Finish & send ---------------------------------------------------
@@ -3298,14 +3761,21 @@ SOFTWARE.
     const cc = splitEmails(state.settings.alwaysCc).filter(SL.mail.isEmail);
 
     // 4. The draft as it will be created
-    const subjectEl = h('div', { class: 'mail-subject' });
-    const bodyEl = h('pre', { class: 'mail-body' });
+    // Subject and body: default template, entirely editable before the draft is opened
+    const subjectEl = h('input', { type: 'text', class: 'mail-subject', 'aria-label': 'Subject', value: SL.mail.subject(job, shift) });
+    const bodyEl = h('textarea', { class: 'mail-body', 'aria-label': 'Body', rows: 16 });
+    bodyEl.value = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+    const resetMail = button('Reset to default text', () => {
+      subjectEl.value = SL.mail.subject(job, shift);
+      bodyEl.value = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+    });
+    // what is sent = what is in the boxes at the time of the tap
+    const takeText = () => { pack.subject = subjectEl.value; pack.body = bodyEl.value; };
     const toEl = h('div', { class: 'small' });
     function refreshMail() {
       const to = Array.from(selected);
       toEl.textContent = `To: ${to.join('; ') || '— none selected —'}${cc.length ? `   ·   CC: ${cc.join('; ')}` : ''}`;
-      subjectEl.textContent = `Subject: ${SL.mail.subject(job, shift)}`;
-      bodyEl.textContent = SL.mail.body(job, shift, [SL.pdf.fileName(job, shift), SL.mail.jsonName(job, shift)]);
+
     }
 
     // 5. Buttons and result
@@ -3328,6 +3798,7 @@ SOFTWARE.
       type: 'button', class: 'btn primary', disabled: true,
       onclick: () => {
         const to = Array.from(selected);
+        takeText();
         SL.mail.share(pack, to, cc)
           .then(({ copied }) => done('share', copied && (to.length || cc.length)
             ? 'The To / CC addresses are copied: paste them in the draft.'
@@ -3342,6 +3813,7 @@ SOFTWARE.
     const mailtoBtn = h('button', {
       type: 'button', class: 'btn', disabled: true,
       onclick: async () => {
+        takeText();
         await SL.mail.mailto(pack, Array.from(selected), cc);
         done('mailto', `PDF and JSON downloaded (${pack.pdf.name}, ${pack.json.name}): attach them to the draft.`);
       },
@@ -3375,7 +3847,10 @@ SOFTWARE.
         h('p', { class: 'small' }, cc.length ? `Always in CC: ${cc.join('; ')}` : 'No “always CC” address (Settings).', ' ', h('a', { href: '#/settings' }, 'Settings'))),
       h('section', { class: 'panel' },
         h('h2', {}, '4. Email'),
-        toEl, subjectEl, bodyEl,
+        toEl,
+        h('div', { class: 'field' }, h('label', {}, 'Subject'), subjectEl),
+        h('div', { class: 'field' }, h('label', {}, 'Body'), bodyEl),
+        h('div', { class: 'actions' }, resetMail),
         h('div', { class: 'actions' }, shareBtn, mailtoBtn),
         h('p', { class: 'muted small', hidden: true, dataset: { note: 'share' } }, 'Share to Outlook attaches the PDF and JSON; the To / CC addresses are copied to paste in the draft.'),
         h('p', { class: 'muted small' }, 'Nothing is sent by the app: you check the draft and send it from your mail app.'),
@@ -3460,6 +3935,10 @@ SOFTWARE.
         h('h3', {}, 'Address book'),
         addressBook()),
       dataSection(),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Install the app'),
+        h('p', { class: 'small' }, 'Open the app address once with network, then: iPhone / iPad — Share → Add to Home Screen; Android — ⋮ → Install app. It then works offline; when a new version is published, “Update available – Reload” appears.'),
+        h('p', { class: 'muted small' }, SL.pwa && SL.pwa.served ? 'This page is served over https: offline mode and file sharing are available.' : 'Opened as a local file: install from the published address to get offline mode and file sharing.')),
     );
   }
 
@@ -3468,9 +3947,18 @@ SOFTWARE.
     const out = h('div', { class: 'import-report', role: 'status' });
     const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
     const today = SL.schema.todayIso();
+    const lastEl = h('p', { class: 'small' });
+    const showLast = () => {
+      const l = state.settings.lastExport;
+      lastEl.textContent = l ? `Last export: ${fmtStamp(l)}` : 'No export made yet on this device.';
+    };
+    showLast();
     const exportAll = async () => {
       await SL.db.flush();
       SL.io.download(await SL.io.exportAll(), `Strata-Lotpack_export_${today}.json`);
+      state.settings.lastExport = SL.mail.isoLocal();
+      saveSettings();
+      showLast();
     };
     const LABEL = { added: 'Added', replaced: 'Replaced by the imported version (newer)', kept: 'Kept this device version (newer)' };
     fileInput.addEventListener('change', async () => {
@@ -3512,6 +4000,8 @@ SOFTWARE.
     });
     return h('section', { class: 'panel' },
       h('h2', {}, 'Data'),
+      h('div', { class: 'warn' }, '⚠ Lotpacks are stored only on this device. Clearing the browser data deletes them: export all data regularly and keep the file.'),
+      lastEl,
       h('p', { class: 'muted small' }, 'Export all jobs to a JSON file (backup, or to open them on another device). Import merges by id: for each shift the most recent version wins; you see the report before applying. Settings of this device are not changed by an import.'),
       h('div', { class: 'actions' }, button('Export all data (JSON)', exportAll), button('Import JSON…', () => fileInput.click())),
       fileInput,

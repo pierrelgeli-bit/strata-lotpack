@@ -4,9 +4,18 @@ Application terrain de la famille Strata : remplissage sur tablette du lotpack d
 
 - Référence : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Fiches officielles : [`docs/forms/`](docs/forms/)
-- Livrable : `dist/strata-lotpack.html`, un seul fichier à ouvrir dans le navigateur, sans serveur ni réseau.
+- Application : **https://pierrelgeli-bit.github.io/strata-lotpack/** (GitHub Pages, publiée depuis `main`), installable et 100 % hors ligne après la première ouverture.
+- Livrable : `dist/index.html` (identique à `dist/strata-lotpack.html`), un seul fichier autonome, plus `manifest.webmanifest`, `sw.js` et `icons/`.
 
-## Utilisation sur tablette / téléphone (fichier local)
+## Installation sur tablette / téléphone
+
+1. Ouvrir https://pierrelgeli-bit.github.io/strata-lotpack/ une première fois avec du réseau.
+2. iPhone / iPad (Safari) : **Partager → Sur l'écran d'accueil**. Android (Chrome) : **⋮ → Installer l'application**.
+3. L'app s'ouvre ensuite depuis son icône, avec ou sans réseau. Les données restent sur l'appareil (IndexedDB) ; le site ne sert qu'à distribuer le code.
+4. Nouvelle version publiée : le bandeau **Update available – Reload** apparaît ; toucher **Reload**.
+5. Faire régulièrement Settings → **Export all data (JSON)** : effacer les données du navigateur supprime les lotpacks.
+
+## Secours : fichier local
 
 1. Copier `dist/strata-lotpack.html` sur l'appareil, toujours au même endroit et sous le même nom.
 2. L'ouvrir dans le navigateur (Chrome sur Android ; sur iPad / iPhone, un navigateur capable d'ouvrir un fichier HTML local).
@@ -20,15 +29,17 @@ Application terrain de la famille Strata : remplissage sur tablette du lotpack d
 node build/build.js
 ```
 
-Assemble `src/` en un seul fichier `dist/strata-lotpack.html`.
+Assemble `src/` en un seul fichier `dist/strata-lotpack.html` (copié en `dist/index.html`) et écrit les fichiers PWA (`manifest.webmanifest`, `sw.js` avec un numéro de version = empreinte du build, `icons/`).
+
+Publication : chaque push sur `main` lance `.github/workflows/pages.yml`, qui reconstruit l'app et publie `dist/` sur GitHub Pages. La branche `test` n'est jamais publiée.
 
 ## Tests
 
 ```bash
-node build/build.js && node test/step1.test.js && node test/step2.test.js && node test/step3.test.js && node test/step4.test.js && node test/step5.test.js && node test/step6.test.js && node test/step7.test.js && node test/step8.test.js
+node build/build.js && node test/step1.test.js && node test/step2.test.js && node test/step3.test.js && node test/step4.test.js && node test/step5.test.js && node test/step6.test.js && node test/step7.test.js && node test/step8.test.js && node test/step9.test.js
 ```
 
-Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Les PDF générés par les tests sont écrits dans `test/out/`.
+Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Les PDF générés par les tests sont écrits dans `test/out/`. L'étape 9 sert `dist/` en local (http://127.0.0.1) pour tester le service worker, le hors ligne et la mise à jour.
 
 ## Gabarit PDF
 
@@ -52,3 +63,4 @@ qui écrit `src/assets/lotpack-template.pdf` (nécessite PyMuPDF). À relancer s
 | 6 | Quantity & Placement | Fait |
 | 7 | PDF complet + Finish & send | Fait |
 | 8 | Export / import JSON | Fait |
+| 9 | PWA + GitHub Pages | Fait |

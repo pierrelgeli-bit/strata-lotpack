@@ -143,14 +143,15 @@
     return box;
   }
 
-  function signBlock(who, s, save, withPosition) {
+  function signBlock(who, s, save, withPosition, shift) {
     const dt = field('Date', s, 'date', save, { type: 'date' });
     const onSign = () => {
       if (s.signature && !s.date) { s.date = nowLocal().slice(0, 10); dt.querySelector('input').value = s.date; }
       save();
     };
     return h('div', { class: 'grid' },
-      field(`${who} Representative`, s, 'name', save),
+      // COLAS name prefilled with the shift's Completed by (typing replaces it)
+      who === 'COLAS' ? computed('COLAS Representative', s, 'name', () => shift.completedBy, save) : field(`${who} Representative`, s, 'name', save),
       withPosition ? field('Position', s, 'position', save) : null,
       dt,
       h('div', { class: 'field span-all' }, h('label', {}, 'Signature'), SL.canvas.signaturePad(s, 'signature', onSign, `${who} signature`)));
@@ -159,18 +160,7 @@
   function render(job, shift, save) {
     const q = ensure(shift);
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', q, 'client', job.client, save),
-          headerField('Date', q, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', q, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', q, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', q, 'suburb', job.suburb, save),
-          computed('Work Description', q, 'workDescription', () => workDescription(shift), save),
-          headerField('Supplying Plant', q, 'supplyingPlant', job.supplyingPlant, save),
-          headerField('Haulage Distance (kms)', q, 'haulageKm', job.haulageKm, save, { inputmode: 'decimal', number: true }))),
+      h('p', { class: 'muted small' }, 'Header (client, project, job, suburb, supplying plant, haulage distance, work description) comes from Job and Shift details.'),
       h('section', { class: 'block' },
         h('h3', {}, 'Pay items'),
         h('p', { class: 'muted small' }, 'Grey values come from the traceability (first “Supply, Deliver, Lay”) or are calculated (Qty Used = QTY Delivered − Waste). Typing replaces them.'),
@@ -184,10 +174,10 @@
       h('section', { class: 'block' },
         h('h3', {}, 'COLAS Representative'),
         h('p', { class: 'muted small' }, 'The below representatives agree & accept the measured quantities in the Quantity & Placement Agreement Sheet. Signing includes the acceptance of above products and services placed by COLAS.'),
-        signBlock('COLAS', q.colasSign, save, false)),
+        signBlock('COLAS', q.colasSign, save, false, shift)),
       h('section', { class: 'block' },
         h('h3', {}, 'Client Representative'),
-        signBlock('Client', q.clientSign, save, true)),
+        signBlock('Client', q.clientSign, save, true, shift)),
     );
   }
 

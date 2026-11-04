@@ -14,6 +14,7 @@
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
     diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
     diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
+    legendsExtra: { index: null, pageNo: { cx: 297.7, baselineTop: 832, size: 9 } },
     quantities: { index: 5, pageNo: { cx: 398.2, baselineTop: 591.0, size: 10 } },
     dip: { index: 6, pageNo: { cx: 320, baselineTop: 829.6, size: 9 } },
     survey: { index: 7, pageNo: { cx: 320, baselineTop: 832.5, size: 9 } },
@@ -333,27 +334,29 @@
     try { return await doc.embedPng(dataUrl); } catch (e) { console.error(e); return null; }
   }
 
-  // Header values: the sheet's local override, else the job / shift common value
-  function headerValues(job, shift, sheet) {
-    const o = (sheet && sheet.header) || {};
-    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
-    const thick = pick('nominatedThickness', shift.nominatedThickness);
+  // Sheet headers come from Job details and Shift details (not typed in the sheets).
+  // opts.date: a sheet's own date (Dip / Survey Records can differ from the shift)
+  function headerValues(job, shift, opts = {}) {
+    const thick = shift.nominatedThickness;
     return {
-      client: pick('client', job.client),
-      projectTitle: pick('projectTitle', job.projectTitle),
-      jobNumber: pick('jobNumber', job.jobNumber),
-      suburb: pick('suburb', job.suburb),
-      date: SL.schema.formatDate(pick('date', shift.date)),
-      product: pick('product', shift.product),
+      client: job.client,
+      projectTitle: job.projectTitle,
+      jobNumber: job.jobNumber,
+      suburb: shift.suburb,
+      date: SL.schema.formatDate(opts.date || shift.date),
+      product: shift.product,
       nominatedThickness: thick === null || thick === undefined || thick === '' ? '' : `${thick} mm`,
+      supplyingPlant: shift.supplyingPlant,
+      haulageKm: shift.haulageKm,
     };
   }
+  const orDefault = (v, d) => (v === null || v === undefined || v === '' ? d : v);
 
   // ---------------------------------------------------------------------
   async function drawApproval(doc, page, fonts, job, shift) {
     const w = writer(page, fonts);
     const a = shift.approval || {};
-    const hv = headerValues(job, shift, a);
+    const hv = headerValues(job, shift);
     APPROVAL.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
 
     const wt = new Set(shift.workType || []);
@@ -368,7 +371,7 @@
     w.lines(a.comments, rows, 9);
 
     const cs = a.colasSign || {};
-    w.text(cs.name, ...APPROVAL.colas.name);
+    w.text(orDefault(cs.name, shift.completedBy), ...APPROVAL.colas.name);
     const csImg = await embedSignature(doc, cs.signature);
     if (csImg) w.image(csImg, APPROVAL.colas.sign);
     w.text(fmtDateTime(cs.dateTime), ...APPROVAL.colas.dateTime);
@@ -409,13 +412,41 @@
     });
   }
 
-  function drawLegends(w, L, dp, completedBy) {
-    dp.legends.forEach((lg, k) => {
+  // Legend values with their defaults: Mix = shift product, Layer = shift layer, Depth = nominated thickness
+  function legendValues(shift, lg, i) {
+    const LAYER_LABEL = { base: 'Base', intermediate: 'Intermediate', wearing: 'Wearing', correction: 'Correction', other: 'Other' };
+    const layers = Array.isArray(lg.layer) ? lg.layer : (shift.layer || []);
+    const depth = orDefault(lg.depth, shift.nominatedThickness);
+    return {
+      n: i + 1,
+      color: lg.color,
+      mix: orDefault(lg.mix, shift.product),
+      layer: layers.map((k) => LAYER_LABEL[k]).filter(Boolean).join(', '),
+      depth: depth === null || depth === undefined || depth === '' ? '' : `${depth} mm`,
+      area: lg.area,
+      tonnes: lg.tonnes,
+    };
+  }
+
+  // Key = colour swatch + legend number, in the Key cell of the printed sheet
+  function swatch(page, x, baselineTop, color, size = 8) {
+    page.drawRectangle({
+      x, y: page.getHeight() - baselineTop - 1, width: size * 1.6, height: size,
+      color: hexRgb(color), borderColor: PDFLib.rgb(0.2, 0.2, 0.2), borderWidth: 0.4,
+    });
+  }
+
+  // Legends 1 and 2 of a drawing page in the printed cells
+  function drawLegends(w, page, L, shift, legends, completedBy) {
+    legends.slice(0, 2).forEach((lg, k) => {
       const c = L.legends[k];
-      const t = (v, [x0, x1], row) => w.text(fmtNum(v), x0, x1, L.rows[row], 8.5);
-      t(lg.key, c.key, 0); t(lg.mix, c.mix, 0); t(lg.area, c.area, 0);
-      t(lg.layer, c.mix, 1); t(lg.tonnes, c.area, 1);
-      t(lg.depth, c.mix, 2);
+      const v = legendValues(shift, lg, k);
+      const t = (val, [x0, x1], row) => w.text(fmtNum(val), x0, x1, L.rows[row], 8.5);
+      swatch(page, c.key[0], L.rows[0], v.color);
+      w.text(String(v.n), c.key[0] + 15, c.key[1], L.rows[0], 8.5);
+      t(v.mix, c.mix, 0); t(v.area, c.area, 0);
+      t(v.layer, c.mix, 1); t(v.tonnes, c.area, 1);
+      t(v.depth, c.mix, 2);
     });
     w.text(completedBy, ...L.completedBy, 10);
   }
@@ -426,21 +457,50 @@
     const dp = d.pages[entry.pageIndex];
     const L = entry.pageIndex === 0 ? DIAG.first : DIAG.more;
     if (entry.pageIndex === 0) {
-      const hv = headerValues(job, shift, d);
+      const hv = headerValues(job, shift);
       L.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
       const wt = new Set(shift.workType || []);
       L.workType.forEach(([k, cx, cy]) => wt.has(k) && w.tick(cx, cy));
     }
     drawStrokes(page, dp.strokes, L.grid);
-    drawLegends(w, L, dp, dp.completedBy || shift.completedBy);
+    drawLegends(w, page, L, shift, dp.legends || [], shift.completedBy);
+  }
+
+  // Legends 3 and more of every drawing page: table on extra page(s) after the Site Diagram
+  const LEG_EXTRA = { cols: [['Page', 40, 80], ['Key', 80, 130], ['Mix', 130, 250], ['Layer', 250, 380], ['Depth', 380, 440], ['Area (m²)', 440, 500], ['Tonnes', 500, 555]], top0: 120, rowH: 20, rows: 32 };
+  async function drawLegendsExtra(doc, page, fonts, job, shift, entry) {
+    const w = writer(page, fonts);
+    const H = page.getHeight();
+    const black = PDFLib.rgb(0, 0, 0);
+    const line = (x0, y0, x1, y1, t = 0.6) => page.drawLine({ start: { x: x0, y: H - y0 }, end: { x: x1, y: H - y1 }, thickness: t, color: black });
+    w.text('Site Diagram — Legends (continued)', 40, 555, 60, 14, { bold: true, color: black });
+    w.text([job.jobNumber, job.projectTitle, SL.schema.formatDate(shift.date)].filter(Boolean).join('  ·  '), 40, 555, 80, 10, { color: black });
+    const C = LEG_EXTRA.cols;
+    const top = LEG_EXTRA.top0, bottom = top + LEG_EXTRA.rowH * (entry.items.length + 1);
+    C.forEach(([label, x0, x1]) => w.text(label, x0 + 3, x1 - 3, top + 13, 9, { bold: true, color: black }));
+    for (let r = 0; r <= entry.items.length + 1; r++) line(40, top + r * LEG_EXTRA.rowH, 555, top + r * LEG_EXTRA.rowH);
+    [40, ...C.map((c) => c[2])].forEach((x) => line(x, top, x, bottom));
+    entry.items.forEach(({ page: pg, lg, i }, r) => {
+      const v = legendValues(shift, lg, i);
+      const base = top + (r + 1) * LEG_EXTRA.rowH + 13;
+      w.text(String(pg + 1), C[0][1] + 3, C[0][2] - 3, base, 9, { align: 'center' });
+      swatch(page, C[1][1] + 5, base, v.color, 9);
+      w.text(String(v.n), C[1][1] + 25, C[1][2] - 3, base, 9);
+      w.text(v.mix, C[2][1] + 3, C[2][2] - 3, base, 9);
+      w.text(v.layer, C[3][1] + 3, C[3][2] - 3, base, 9);
+      w.text(v.depth, C[4][1] + 3, C[4][2] - 3, base, 9, { align: 'center' });
+      w.text(fmtNum(v.area), C[5][1] + 3, C[5][2] - 3, base, 9, { align: 'center' });
+      w.text(fmtNum(v.tonnes), C[6][1] + 3, C[6][2] - 3, base, 9, { align: 'center' });
+    });
+    w.text('COLAS NSW PTY Ltd — MSF28-7 Site Diagram, legends 3 and more', 40, 555, 818, 8, { color: black });
   }
 
   async function drawRecord(doc, page, fonts, job, shift, entry) {
     const w = writer(page, fonts);
     const L = REC[entry.kind];
     const rec = SL.forms[entry.kind].ensure(entry.rec);
-    const hv = headerValues(job, shift, rec);
-    const vals = { ...hv, mixType: rec.mixType, frequency: rec.frequency };
+    const hv = headerValues(job, shift, { date: rec.date });
+    const vals = { ...hv, mixType: orDefault(rec.mixType, shift.product), frequency: rec.frequency };
     L.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
     const sf = L.surface[rec.existingSurface];
     if (sf) w.tick(sf[0], sf[1], 2.6);
@@ -470,15 +530,8 @@
     const w = writer(page, fonts);
     const Q = SL.forms.quantities;
     const q = Q.ensure(shift);
-    const hv = headerValues(job, shift, q);
-    const o = q.header || {};
-    const pick = (k, v) => (o[k] !== undefined && o[k] !== null && o[k] !== '' ? o[k] : v);
-    const vals = {
-      ...hv,
-      workDescription: Q.workDescription(shift),
-      supplyingPlant: pick('supplyingPlant', job.supplyingPlant),
-      haulageKm: fmtNum(pick('haulageKm', job.haulageKm)),
-    };
+    const hv = headerValues(job, shift);
+    const vals = { ...hv, workDescription: Q.workDescription(shift), haulageKm: fmtNum(hv.haulageKm) };
     QTY.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
 
     const C = QTY.cols;
@@ -500,7 +553,7 @@
     w.lines(q.comments, QTY.comments, 9);
 
     const cs = q.colasSign, cl = q.clientSign;
-    w.text(cs.name, ...QTY.colas.name, 9.5);
+    w.text(orDefault(cs.name, shift.completedBy), ...QTY.colas.name, 9.5);
     const csImg = await embedSignature(doc, cs.signature);
     if (csImg) w.image(csImg, QTY.colas.sign);
     w.text(SL.schema.formatDate(cs.date), ...QTY.colas.date, 9.5);
@@ -516,7 +569,12 @@
 
   function diagramPages(shift) {
     const d = SL.forms.diagram.ensure(shift);
-    return d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
+    const pages = d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
+    const extra = d.pages.flatMap((p, k) => (p.legends || []).slice(2).map((lg, j) => ({ page: k, lg, i: j + 2 })));
+    for (let k = 0; k < extra.length; k += LEG_EXTRA.rows) {
+      pages.push({ template: 'legendsExtra', draw: drawLegendsExtra, items: extra.slice(k, k + LEG_EXTRA.rows) });
+    }
+    return pages;
   }
 
   // One table row of MSF28-10 (truck and / or reading)
@@ -547,7 +605,7 @@
   async function drawTraceability(doc, page, fonts, job, shift, entry) {
     const w = writer(page, fonts);
     const t = SL.forms.traceability.ensure(shift);
-    const hv = headerValues(job, shift, t);
+    const hv = headerValues(job, shift);
     TRACE.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
     w.text(shift.weather, ...TRACE.weather);
     w.text(fmtNum(t.tackRate.litres), ...TRACE.tackLitres, { align: 'center' });
@@ -622,15 +680,18 @@
       bold: await doc.embedFont(StandardFonts.HelveticaBold),
     };
     const plan = packPlan(job, shift);
-    const copied = await doc.copyPages(src, plan.map((p) => TEMPLATES[p.template].index));
+    // Template pages are copied from the official PDF; extra legend pages are blank A4
+    const withTpl = plan.filter((p) => TEMPLATES[p.template].index !== null);
+    const copied = await doc.copyPages(src, withTpl.map((p) => TEMPLATES[p.template].index));
     const pages = [];
+    let c = 0;
     for (let i = 0; i < plan.length; i++) {
-      const page = doc.addPage(copied[i]);
+      const page = TEMPLATES[plan[i].template].index !== null ? doc.addPage(copied[c++]) : doc.addPage([595.32, 841.92]);
       await plan[i].draw(doc, page, fonts, job, shift, plan[i], i, plan.length);
       pages.push(page);
     }
     paginate(pages, plan, fonts);
-    const title = `Lotpack – ${job.projectTitle || job.jobNumber || 'Job'} – ${SL.schema.formatDate(shift.date)}`;
+    const title = `Lotpack – ${[job.jobNumber, job.projectTitle].filter(Boolean).join(' ') || 'Job'} – ${SL.schema.formatDate(shift.date)}`;
     doc.setTitle(title);
     doc.setCreator('Strata Lotpack');
     doc.setProducer('Strata Lotpack');

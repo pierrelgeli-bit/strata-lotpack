@@ -198,55 +198,77 @@
       computeProgress(t);
       loadsBox.querySelectorAll('[data-progress]').forEach((el) => {
         const l = t.loads[Number(el.dataset.progress)];
-        el.textContent = l && l.progress !== null ? String(l.progress) : '';
+        el.textContent = l && l.progress !== null ? `${l.progress} T` : '';
       });
       lotFields.forEach((f) => f.refresh());
       save();
     };
 
-    function loadRow(l, i) {
-      const cells = LOAD_COLS.map(([k, label, type, w]) => {
+    // Collapsible truck row: folded = Load No, Docket No, Progress tonnes; open = every field
+    function loadRow(l, i, open) {
+      const sumNo = h('span', { class: 'sum-no' });
+      const sumDocket = h('span', { class: 'sum-docket' });
+      const sumProg = h('output', { class: 'calc sum-prog', dataset: { progress: String(i) } });
+      const refreshSum = () => {
+        sumNo.textContent = `Load ${l.no ?? '–'}`;
+        sumDocket.textContent = l.docket ? `Docket ${l.docket}` : 'No docket';
+        sumProg.textContent = l.progress !== null && l.progress !== undefined ? `${l.progress} T` : '';
+      };
+      refreshSum();
+      const onEdit = () => { changed(); refreshSum(); };
+      const cells = LOAD_COLS.filter(([, , type]) => type !== 'calc').map(([k, label, type, w]) => {
         if (type === 'calc') {
           return h('div', { class: `cell ${w}` }, h('span', { class: 'cell-label' }, label),
             h('output', { class: 'calc', dataset: { progress: String(i) } }, l.progress ?? ''));
         }
-        const f = field(label, l, k, changed, { type: type === 'time' ? 'time' : type });
+        const f = field(label, l, k, onEdit, { type: type === 'time' ? 'time' : type });
         f.className = `cell ${w}`;
         f.querySelector('label').className = 'cell-label';
         return f;
       });
       const del = h('button', {
-        type: 'button', class: 'icon-btn', 'aria-label': `Delete load ${l.no ?? i + 1}`, title: 'Delete row',
+        type: 'button', class: 'btn danger', 'aria-label': `Delete load ${l.no ?? i + 1}`,
         onclick: () => { if (confirm(`Delete load ${l.no ?? i + 1}?`)) { t.loads.splice(i, 1); drawLoads(); changed(); } },
-      }, '×');
-      return h('div', { class: 'trow' }, cells, del);
+      }, 'Delete load');
+      return h('details', { class: 'fold-row load-row', open: !!open },
+        h('summary', {}, sumNo, sumDocket, sumProg),
+        h('div', { class: 'trow' }, cells),
+        h('div', { class: 'actions' }, del));
     }
 
-    function drawLoads() {
-      loadsBox.replaceChildren(
-        h('div', { class: 'trow thead', 'aria-hidden': 'true' }, LOAD_COLS.map(([, label, , w]) => h('div', { class: `cell ${w}` }, label)), h('span', { class: 'icon-btn ghost' })),
-        ...(t.loads.length ? t.loads.map(loadRow) : [h('p', { class: 'empty' }, 'No truck yet.')]));
+    function drawLoads(openLast) {
+      loadsBox.replaceChildren(...(t.loads.length
+        ? t.loads.map((l, i) => loadRow(l, i, openLast && i === t.loads.length - 1))
+        : [h('p', { class: 'empty' }, 'No truck yet.')]));
     }
 
-    function readingRow(r, i) {
+    // Collapsible reading row: folded = time, wind, pavement temp
+    function readingRow(r, i, open) {
+      const sum = h('span', {});
+      const refreshSum = () => {
+        sum.textContent = `${r.time || '--:--'}  ·  Wind ${r.windKmh ?? '–'} km/h  ·  Pavement ${r.pavementTemp ?? '–'} °C`;
+      };
+      refreshSum();
       const f = (label, k, type) => {
-        const el = field(label, r, k, save, { type });
+        const el = field(label, r, k, () => { save(); refreshSum(); }, { type });
         el.className = 'cell w-s';
         el.querySelector('label').className = 'cell-label';
         return el;
       };
       const del = h('button', {
-        type: 'button', class: 'icon-btn', 'aria-label': `Delete reading ${r.time || i + 1}`, title: 'Delete reading',
+        type: 'button', class: 'btn danger', 'aria-label': `Delete reading ${r.time || i + 1}`,
         onclick: () => { t.envReadings.splice(i, 1); drawReadings(); save(); },
-      }, '×');
-      return h('div', { class: 'trow' }, f('Time', 'time', 'time'), f('Wind Velocity (km/h)', 'windKmh', 'number'), f('Pavement Temp (°C)', 'pavementTemp', 'number'), del);
+      }, 'Delete reading');
+      return h('details', { class: 'fold-row reading-row', open: !!open },
+        h('summary', {}, sum),
+        h('div', { class: 'trow' }, f('Time', 'time', 'time'), f('Wind Velocity (km/h)', 'windKmh', 'number'), f('Pavement Temp (°C)', 'pavementTemp', 'number')),
+        h('div', { class: 'actions' }, del));
     }
 
-    function drawReadings() {
-      readingsBox.replaceChildren(
-        h('div', { class: 'trow thead', 'aria-hidden': 'true' },
-          h('div', { class: 'cell w-s' }, 'Time'), h('div', { class: 'cell w-s' }, 'Wind Velocity (km/h)'), h('div', { class: 'cell w-s' }, 'Pavement Temp (°C)'), h('span', { class: 'icon-btn ghost' })),
-        ...(t.envReadings.length ? t.envReadings.map(readingRow) : [h('p', { class: 'empty' }, 'No reading yet.')]));
+    function drawReadings(openLast) {
+      readingsBox.replaceChildren(...(t.envReadings.length
+        ? t.envReadings.map((r, i) => readingRow(r, i, openLast && i === t.envReadings.length - 1))
+        : [h('p', { class: 'empty' }, 'No reading yet.')]));
     }
 
     const addLoad = () => {
@@ -256,18 +278,18 @@
         docket: '', tonnes: null, progress: null, tipTime: hhmm(), temp: null,
         chStart: null, chEnd: null, run: last ? last.run : null, width: last ? last.width : null, comment: '',
       });
-      drawLoads();
+      drawLoads(true);
       changed();
-      const rows = loadsBox.querySelectorAll('.trow:not(.thead)');
+      const rows = loadsBox.querySelectorAll('.load-row');
       const row = rows[rows.length - 1];
       row.scrollIntoView({ block: 'center' });
       row.querySelector('input[data-key=docket]').focus();
     };
     const addReading = () => {
       t.envReadings.push({ time: hhmm(), windKmh: null, pavementTemp: null });
-      drawReadings();
+      drawReadings(true);
       save();
-      const rows = readingsBox.querySelectorAll('.trow:not(.thead)');
+      const rows = readingsBox.querySelectorAll('.reading-row');
       rows[rows.length - 1].querySelector('input[data-key=windKmh]').focus();
     };
 
@@ -281,36 +303,22 @@
     ];
 
     return h('div', { class: 'sheet' },
-      h('section', { class: 'block' },
-        h('h3', {}, 'Header'),
-        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
-        h('div', { class: 'grid' },
-          headerField('Client', t, 'client', job.client, save),
-          headerField('Date', t, 'date', shift.date, save, { type: 'date' }),
-          headerField('Project Title', t, 'projectTitle', job.projectTitle, save),
-          headerField('Job Number', t, 'jobNumber', job.jobNumber, save),
-          headerField('Suburb', t, 'suburb', job.suburb, save),
-          field('Weather Conditions', shift, 'weather', save),
-          headerField('Product', t, 'product', shift.product, save),
-          headerField('Nominated Layer Thickness (mm)', t, 'nominatedThickness', shift.nominatedThickness, save, { inputmode: 'decimal', number: true }))),
+      h('details', { class: 'block fold', open: !shift.weather },
+        h('summary', {}, h('h3', {}, 'Weather conditions')),
+        h('div', { class: 'grid' }, field('Weather Conditions', shift, 'weather', save))),
 
-      h('section', { class: 'block' },
-        h('h3', {}, 'Tack coat & surface'),
+      h('details', { class: 'block fold' },
+        h('summary', {}, h('h3', {}, 'Tack coat & surface')),
         h('div', { class: 'grid' },
           field('Tack Coat Application Rate — Litres', t.tackRate, 'litres', save, { type: 'number' }),
           field('Tack Coat Application Rate — m²', t.tackRate, 'm2', save, { type: 'number' }),
           yesNo('Tack Coat Broken Before Paving?', t, 'tackBroken', save),
           yesNo('Existing Surface Clean, dry and free from loose material?', t, 'surfaceClean', save))),
 
-      h('section', { class: 'block' },
-        h('h3', {}, 'Type of work'),
-        h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save))),
-        h('h3', {}, 'Layer'),
-        h('div', { class: 'choice' }, LAYERS.map(([k, l]) => multi(l, shift, 'layer', k, save))),
-        h('p', { class: 'muted small' }, 'Paving should not commence without a signed Approval to Proceed/ Hold Point. Only 1 layer/ mix type per page or identify in comments.')),
+      h('p', { class: 'muted small' }, 'Paving should not commence without a signed Approval to Proceed/ Hold Point. Only 1 layer/ mix type per page or identify in comments. Type of work and layer: see Approval to Proceed.'),
 
       h('section', { class: 'block' },
-        h('div', { class: 'row-head' }, h('h3', {}, 'Trucks'), SL.ui.button('Add row', addLoad, 'primary')),
+        h('div', { class: 'row-head' }, h('h3', {}, 'Trucks'), SL.ui.button('Add load', addLoad, 'primary')),
         loadsBox),
 
       h('section', { class: 'block' },

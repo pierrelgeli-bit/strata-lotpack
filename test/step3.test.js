@@ -32,28 +32,33 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
   await page.getByLabel('Client').fill('Transport for NSW');
   await page.getByLabel('Project Title').fill('Pacific Hwy resurfacing');
   await page.getByLabel('Job Number').fill('J-24017');
-  await page.getByLabel('Suburb').fill('Coffs Harbour');
   await page.getByRole('button', { name: 'New shift' }).click();
   const today = await page.evaluate(() => SL.schema.todayIso());
+  await page.locator('.shift-details').getByLabel('Suburb').fill('Coffs Harbour');
+  // Type of work / layer are set in the Approval (no longer in the Traceability sheet)
+  await page.locator('.sheet').getByText('Supply & Lay').click();
+  await page.locator('.sheet').getByText('Wearing', { exact: true }).click();
   await page.locator('.shift-details').getByLabel('Product').fill('AC14');
   await page.locator('.shift-details').getByLabel('Nominated thickness (mm)').fill('40');
   await page.getByRole('tab', { name: /Asphalt Traceability/ }).click();
   const sheet = page.locator('.sheet');
 
-  // Header extras
+  // Header removed except Weather (folded block); tack coat questions folded
+  await sheet.getByLabel('Weather Conditions').waitFor();
+  check(await sheet.locator('input[data-key=client], input[data-key=suburb]').count() === 0, 'No header fields except Weather');
+  check(await sheet.getByText('Supply & Lay').count() === 0, 'Type of work not in the Traceability sheet');
   await sheet.getByLabel('Weather Conditions').fill('Fine, dry');
+  await sheet.locator('details.fold', { hasText: 'Tack coat & surface' }).locator('summary').click();
   await sheet.getByLabel('Tack Coat Application Rate — Litres').fill('0.3');
   await sheet.getByLabel('Tack Coat Application Rate — m²').fill('1');
   await sheet.locator('.field', { hasText: 'Tack Coat Broken' }).getByText('Yes').click();
   await sheet.locator('.field', { hasText: 'Existing Surface Clean' }).getByText('Yes').click();
-  await sheet.getByText('Supply & Lay').click();
-  await sheet.getByText('Wearing', { exact: true }).click();
 
   // 3 trucks through the UI
   const loadsData = [['D-1001', '12.5', '06:58', '155', '1000', '1080'], ['D-1002', '11.8', '07:10', '152', '1080', '1155'], ['D-1003', '12.1', '07:24', '135', '1155', '1230']];
   for (const [docket, t, tip, temp, a, b] of loadsData) {
-    await sheet.getByRole('button', { name: 'Add row' }).click();
-    const row = sheet.locator('.rows').first().locator('.trow:not(.thead)').last();
+    await sheet.getByRole('button', { name: 'Add load' }).click();
+    const row = sheet.locator('.load-row').last();
     await row.locator('input[data-key=docket]').fill(docket);
     await row.locator('input[data-key=tonnes]').fill(t);
     await row.locator('input[data-key=tipTime]').fill(tip);
@@ -64,14 +69,20 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
     await row.locator('input[data-key=width]').fill('3.5');
   }
   const progress = await sheet.locator('output.calc').allInnerTexts();
-  check(JSON.stringify(progress) === JSON.stringify(['12.5', '24.3', '36.4']), `Progress tonnes cumulative (${progress.join(', ')})`);
-  check(await sheet.locator('.rows').first().locator('input[data-key=no]').last().inputValue() === '3', 'Load No auto-increments');
+  check(JSON.stringify(progress) === JSON.stringify(['12.5 T', '24.3 T', '36.4 T']), `Progress tonnes cumulative (${progress.join(', ')})`);
+  check(await sheet.locator('.load-row').last().locator('input[data-key=no]').inputValue() === '3', 'Load No auto-increments');
+  // folded rows show Load No, Docket No, Progress tonnes only
+  const firstRow = sheet.locator('.load-row').first();
+  check(!(await firstRow.evaluate((el) => el.open)) && (await firstRow.locator('summary').innerText()).replace(/\s+/g, ' ') === 'Load 1 Docket D-1001 12.5 T', 'Folded truck row: Load No, Docket, Progress');
+  check(await sheet.locator('.load-row[open]').count() === 1, 'Only the newest truck row is open');
+  await firstRow.locator('summary').click();
+  check(await firstRow.locator('input[data-key=tonnes]').isVisible(), 'Tap unfolds a truck row (all fields)');
   check(await page.locator('.warn').innerText().then((t) => t.includes('no wind / pavement temperature reading yet')), 'Warning: no reading before start');
 
   // Readings: before start + every 2 h
   for (const [time, wind, pav] of [['06:30', '12', '18'], ['08:40', '15', '24']]) {
     await sheet.getByRole('button', { name: 'Add reading' }).click();
-    const row = sheet.locator('.rows').nth(1).locator('.trow:not(.thead)').last();
+    const row = sheet.locator('.reading-row').last();
     await row.locator('input[data-key=time]').fill(time);
     await row.locator('input[data-key=windKmh]').fill(wind);
     await row.locator('input[data-key=pavementTemp]').fill(pav);
@@ -89,7 +100,7 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
   const nowMin = await page.evaluate(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
   if (nowMin >= 160) {
     await sheet.getByRole('button', { name: 'Add reading' }).click();
-    const row = sheet.locator('.rows').nth(1).locator('.trow:not(.thead)').last();
+    const row = sheet.locator('.reading-row').last();
     await row.locator('input[data-key=time]').fill(hhmm(nowMin - 150));
     await row.locator('input[data-key=windKmh]').fill('10');
     await page.locator('.shift-details').getByLabel('Date').fill(today);
@@ -126,8 +137,8 @@ const hhmm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${S
   await page.reload();
   await page.waitForSelector('html[data-ready="1"]');
   await page.getByRole('tab', { name: /Asphalt Traceability/ }).click();
-  await page.locator('.sheet .rows').first().locator('.trow:not(.thead)').first().waitFor();
-  const nRows = await page.locator('.sheet .rows').first().locator('.trow:not(.thead)').count();
+  await page.locator('.sheet .load-row').first().waitFor();
+  const nRows = await page.locator('.sheet .load-row').count();
   check(nRows === 30, `30 truck rows after reload (${nRows})`);
   check(await page.locator('.sheet input[data-key=qtyDelivered]').inputValue() === '360.4', 'QTY Delivered = 360.4 T');
 

@@ -126,14 +126,16 @@
   // Sketch pad for the site diagram. Strokes are vectors in grid-relative units
   // (x, y from 0 to 1 of the printed grid area), so the PDF redraws them exactly.
   // stroke = { c: '#rrggbb', w: width as a fraction of the grid width, p: [[x, y], ...] }
+  // Zoom: pinch with two fingers (or + / − / Fit); one finger, the stylus or the mouse draws.
+  // The line keeps the same thickness on screen whatever the zoom (stored width = width / zoom).
   // ---------------------------------------------------------------------
-  const COLORS = [['#111111', 'Black'], ['#1f4fd1', 'Blue'], ['#d11f1f', 'Red'], ['#16893a', 'Green'], ['#e07b00', 'Orange']];
   const WIDTHS = [[0.0022, 'Thin'], [0.0045, 'Medium'], [0.009, 'Thick']];
-  const tool = { mode: 'pen', color: COLORS[0][0], width: WIDTHS[1][0] }; // shared between pages
+  const tool = { mode: 'pen', color: '#d11f1f', width: WIDTHS[0][0] }; // shared between pages
+  const ZMAX = 8;
 
-  // page.strokes is edited in place; aspect = grid width / height; cells = grid squares across
-  function sketchPad(page, aspect, cells, onChange) {
+  function sketchPad(page, aspect, cells, onChange, opts = {}) {
     page.strokes = page.strokes || [];
+    const palette = opts.palette || ['#111111', '#1f4fd1', '#d11f1f', '#16893a', '#e07b00'];
     const undo = [];
     const redo = [];
     const bg = h('canvas', { class: 'sk-layer', 'aria-hidden': 'true' });
@@ -141,37 +143,49 @@
     const box = h('div', { class: 'sk-box', style: `aspect-ratio: ${aspect}; --ar: ${aspect}` }, bg, fg);
     const bctx = bg.getContext('2d');
     const ctx = fg.getContext('2d');
-    let W = 0, H = 0;
+    let W = 0, H = 0, dpr = 1;
+    const view = { z: 1, tx: 0, ty: 0 }; // screen = grid * (W*z, H*z) + (tx, ty)
+
+    function clampView() {
+      view.z = Math.min(ZMAX, Math.max(1, view.z));
+      view.tx = Math.min(0, Math.max(W - W * view.z, view.tx));
+      view.ty = Math.min(0, Math.max(H - H * view.z, view.ty));
+    }
 
     function resize() {
       const r = box.getBoundingClientRect();
       if (!r.width) return;
-      const dpr = window.devicePixelRatio || 1;
+      // keep the same part of the drawing in view when the size changes
+      const cx = W ? (W / 2 - view.tx) / (W * view.z) : 0.5, cy = H ? (H / 2 - view.ty) / (H * view.z) : 0.5;
+      dpr = window.devicePixelRatio || 1;
       W = r.width; H = r.height;
       [bg, fg].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
-      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawGrid();
+      view.tx = W / 2 - cx * W * view.z; view.ty = H / 2 - cy * H * view.z;
+      clampView();
       redraw();
     }
 
+    const setT = (c) => c.setTransform(dpr * view.z, 0, 0, dpr * view.z, dpr * view.tx, dpr * view.ty);
+
     // Paper-like grid, same squares as the printed sheet
     function drawGrid() {
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
       bctx.fillStyle = '#ffffff';
-      bctx.fillRect(0, 0, W, H);
+      bctx.fillRect(0, 0, bg.width, bg.height);
+      setT(bctx);
       const step = W / cells;
       bctx.strokeStyle = '#c9ced6';
-      bctx.lineWidth = 1;
-      bctx.setLineDash([3, 2]);
+      bctx.lineWidth = 1 / view.z;
+      bctx.setLineDash([3 / view.z, 2 / view.z]);
       bctx.beginPath();
-      for (let x = step; x < W - 1; x += step) { bctx.moveTo(Math.round(x) + 0.5, 0); bctx.lineTo(Math.round(x) + 0.5, H); }
-      for (let y = step; y < H - 1; y += step) { bctx.moveTo(0, Math.round(y) + 0.5); bctx.lineTo(W, Math.round(y) + 0.5); }
+      for (let x = step; x < W - 0.5; x += step) { bctx.moveTo(x, 0); bctx.lineTo(x, H); }
+      for (let y = step; y < H - 0.5; y += step) { bctx.moveTo(0, y); bctx.lineTo(W, y); }
       bctx.stroke();
       bctx.setLineDash([]);
     }
 
     function drawStroke(c, s) {
-      const lw = Math.max(1, s.w * W);
+      const lw = Math.max(1 / view.z, s.w * W);
       c.strokeStyle = s.c; c.fillStyle = s.c; c.lineWidth = lw;
       c.lineCap = 'round'; c.lineJoin = 'round';
       if (s.p.length === 1) {
@@ -185,24 +199,27 @@
     }
 
     function redraw() {
-      ctx.clearRect(0, 0, W, H);
+      drawGrid();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, fg.width, fg.height);
+      setT(ctx);
       page.strokes.forEach((s) => drawStroke(ctx, s));
       syncButtons();
     }
 
+    // Screen point -> grid-relative point (0..1)
     const pos = (e) => {
       const r = fg.getBoundingClientRect();
-      const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 10000) / 10000;
-      return [q((e.clientX - r.left) / r.width), q((e.clientY - r.top) / r.height)];
+      const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 100000) / 100000;
+      return [q((e.clientX - r.left - view.tx) / (W * view.z)), q((e.clientY - r.top - view.ty) / (H * view.z))];
     };
 
-    // Stroke eraser: removes every stroke passing near the pointer
+    // Stroke eraser: removes every stroke passing near the pointer (radius constant on screen)
     function hits(s, [x, y]) {
-      const rad = 0.012 + s.w / 2;
-      const ar = aspect; // compare distances in grid-width units
+      const rad = 0.012 / view.z + s.w / 2;
       const near = (a, b) => {
-        const dx = (b[0] - a[0]), dy = (b[1] - a[1]) / ar;
-        const px = (x - a[0]), py = (y - a[1]) / ar;
+        const dx = (b[0] - a[0]), dy = (b[1] - a[1]) / aspect;
+        const px = (x - a[0]), py = (y - a[1]) / aspect;
         const len = dx * dx + dy * dy;
         const t = len ? Math.max(0, Math.min(1, (px * dx + py * dy) / len)) : 0;
         const ex = px - t * dx, ey = py - t * dy;
@@ -215,19 +232,48 @@
 
     let current = null; // stroke being drawn
     let erased = null;  // [[index, stroke]] removed by this eraser drag
+    const touches = new Map(); // pointerId -> {x, y} for pinch
+    let pinch = null;
 
     function eraseAt(pt) {
       for (let i = page.strokes.length - 1; i >= 0; i--) {
-        if (hits(page.strokes[i], pt)) {
-          erased.push([i, page.strokes[i]]);
-          page.strokes.splice(i, 1);
-        }
+        if (hits(page.strokes[i], pt)) { erased.push([i, page.strokes[i]]); page.strokes.splice(i, 1); }
       }
+    }
+
+    function startPinch() {
+      const [a, b] = Array.from(touches.values());
+      const r = fg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: view.z, gx: (mx - view.tx) / (W * view.z), gy: (my - view.ty) / (H * view.z) };
+    }
+    function movePinch() {
+      const [a, b] = Array.from(touches.values());
+      const r = fg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      view.z = pinch.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0);
+      view.z = Math.min(ZMAX, Math.max(1, view.z));
+      view.tx = mx - pinch.gx * W * view.z;
+      view.ty = my - pinch.gy * H * view.z;
+      clampView();
+      redraw();
+      syncZoom();
     }
 
     fg.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       fg.setPointerCapture(e.pointerId);
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) {
+          // second finger: this is a pinch, not a stroke
+          current = null; erased = null;
+          redraw();
+          startPinch();
+          return;
+        }
+        if (touches.size > 2) return;
+      }
       const pt = pos(e);
       if (tool.mode === 'eraser') {
         erased = [];
@@ -235,10 +281,12 @@
         redraw();
         return;
       }
-      current = { c: tool.color, w: tool.width, p: [pt] };
+      current = { c: tool.color, w: Math.round((tool.width / view.z) * 1e6) / 1e6, p: [pt] };
       drawStroke(ctx, current);
     });
     fg.addEventListener('pointermove', (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch) { if (touches.size >= 2) movePinch(); return; }
       if (!current && !erased) return;
       e.preventDefault();
       const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -251,14 +299,16 @@
       events.forEach((ev) => {
         const pt = pos(ev);
         const last = current.p[current.p.length - 1];
-        if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 0.0015) return;
+        if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 0.0015 / view.z) return;
         current.p.push(pt);
-        ctx.strokeStyle = current.c; ctx.lineWidth = Math.max(1, current.w * W);
+        ctx.strokeStyle = current.c; ctx.lineWidth = Math.max(1 / view.z, current.w * W);
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); ctx.moveTo(last[0] * W, last[1] * H); ctx.lineTo(pt[0] * W, pt[1] * H); ctx.stroke();
       });
     });
-    const end = () => {
+    const end = (e) => {
+      touches.delete(e.pointerId);
+      if (pinch) { if (touches.size < 2) pinch = null; return; }
       if (current) {
         page.strokes.push(current);
         undo.push({ type: 'add', stroke: current });
@@ -297,6 +347,14 @@
       redraw();
       onChange();
     };
+    // Zoom buttons: around the centre of the view
+    const zoomBy = (k) => {
+      const gx = (W / 2 - view.tx) / (W * view.z), gy = (H / 2 - view.ty) / (H * view.z);
+      view.z = Math.min(ZMAX, Math.max(1, view.z * k));
+      view.tx = W / 2 - gx * W * view.z; view.ty = H / 2 - gy * H * view.z;
+      clampView(); redraw(); syncZoom();
+    };
+    const fit = () => { view.z = 1; view.tx = 0; view.ty = 0; redraw(); syncZoom(); };
 
     // Toolbar
     const tb = {};
@@ -313,10 +371,16 @@
       tb.redo.disabled = !redo.length;
       tb.clear.disabled = !page.strokes.length;
     }
+    function syncZoom() {
+      if (!tb.zoom) return;
+      tb.zoom.textContent = `${Math.round(view.z * 100)} %`;
+      tb.zout.disabled = view.z <= 1;
+      tb.zin.disabled = view.z >= ZMAX;
+    }
     tb.pen = h('button', { type: 'button', class: 'tool', onclick: () => { tool.mode = 'pen'; sync(); } }, 'Pen');
     tb.eraser = h('button', { type: 'button', class: 'tool', onclick: () => { tool.mode = 'eraser'; sync(); } }, 'Eraser');
-    tb.colors = COLORS.map(([c, name]) => h('button', {
-      type: 'button', class: 'tool swatch', title: name, 'aria-label': name, dataset: { color: c },
+    tb.colors = palette.map((c) => h('button', {
+      type: 'button', class: 'tool swatch', title: c, 'aria-label': `Colour ${c}`, dataset: { color: c },
       style: `--sw:${c}`, onclick: () => { tool.color = c; tool.mode = 'pen'; sync(); },
     }));
     tb.widths = WIDTHS.map(([w, name]) => h('button', {
@@ -326,8 +390,14 @@
     tb.undo = h('button', { type: 'button', class: 'tool', onclick: doUndo }, 'Undo');
     tb.redo = h('button', { type: 'button', class: 'tool', onclick: doRedo }, 'Redo');
     tb.clear = h('button', { type: 'button', class: 'tool danger', onclick: doClear }, 'Clear');
+    tb.zout = h('button', { type: 'button', class: 'tool', 'aria-label': 'Zoom out', onclick: () => zoomBy(1 / 1.5) }, '−');
+    tb.zin = h('button', { type: 'button', class: 'tool', 'aria-label': 'Zoom in', onclick: () => zoomBy(1.5) }, '+');
+    tb.fit = h('button', { type: 'button', class: 'tool', onclick: fit }, 'Fit');
+    tb.zoom = h('span', { class: 'zoom-label', 'aria-live': 'polite' });
+    if (!palette.includes(tool.color)) tool.color = palette[0];
     sync();
     syncButtons();
+    syncZoom();
 
     requestAnimationFrame(resize);
     new ResizeObserver(() => resize()).observe(box);
@@ -336,18 +406,18 @@
       h('div', { class: 'tgroup' }, tb.pen, tb.eraser),
       h('div', { class: 'tgroup' }, tb.colors),
       h('div', { class: 'tgroup' }, tb.widths),
-      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear));
+      h('div', { class: 'tgroup' }, tb.undo, tb.redo, tb.clear),
+      h('div', { class: 'tgroup' }, tb.zout, tb.zoom, tb.zin, tb.fit));
     const root = h('div', { class: 'sk' }, tools, box);
 
     // Full screen: button in the top-right corner of the drawing area; same button (or Esc) to come back.
-    // Strokes are grid-relative, so they stay in place whatever the size.
     const expand = h('button', { type: 'button', class: 'sk-expand' });
     const setExpandLabel = (full) => {
       expand.textContent = full ? '⤡' : '⤢';
       expand.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen drawing');
       expand.title = full ? 'Exit full screen' : 'Full screen drawing';
     };
-    function fit() {
+    function fitBox() {
       if (!root.classList.contains('full')) { box.style.width = ''; return; }
       const cs = getComputedStyle(root);
       const availW = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
@@ -359,14 +429,18 @@
       root.classList.toggle('full', on);
       document.documentElement.classList.toggle('sk-lock', on);
       setExpandLabel(on);
-      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fit); }
-      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); }
-      fit();
+      if (on) { document.addEventListener('keydown', onKey); window.addEventListener('resize', fitBox); }
+      else { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fitBox); }
+      fitBox();
       if (!on) box.scrollIntoView({ block: 'nearest' });
     }
     expand.addEventListener('click', () => toggleFull());
     setExpandLabel(false);
     box.appendChild(expand);
+
+    // Pen colour set from outside (legend key)
+    root.setColor = (c) => { tool.color = c; tool.mode = 'pen'; sync(); };
+    root.view = view;
     return root;
   }
 

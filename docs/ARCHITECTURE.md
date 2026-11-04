@@ -1,8 +1,8 @@
 # Strata Lotpack — Architecture
 
-**Strata Lotpack** est l'application terrain de la famille Strata. Strata Opus est l'outil global de gestion de projet. Lotpack remplace le pack papier COLAS NSW utilisé sur les chantiers d'enrobé. La V1 est un fichier HTML unique, 100 % local, qui permet de remplir les fiches sur tablette puis d'envoyer le lotpack par mail.
+**Strata Lotpack** est l'application terrain de la famille Strata. Strata Opus est l'outil global de gestion de projet. Lotpack remplace le pack papier COLAS NSW utilisé sur les chantiers d'enrobé. La V1 est une application web installable (PWA), publiée sur GitHub Pages et 100 % hors ligne après la première ouverture, qui permet de remplir les fiches sur tablette puis d'envoyer le lotpack par mail.
 
-> Ce document est la référence pour le développement dans Claude Code. Il deviendra `docs/ARCHITECTURE.md` dans le dépôt GitHub. L'interface de l'application est en anglais ; la documentation et les échanges sont en français.
+> Ce document est la référence pour le développement dans Claude Code. Il est copié tel quel dans `docs/ARCHITECTURE.md` dans le dépôt GitHub. L'interface de l'application est en anglais ; la documentation et les échanges sont en français.
 
 ## 1. Objectifs
 
@@ -13,7 +13,7 @@
 - Terminer par l'envoi par mail du lotpack (PDF + JSON).
 - Exporter et importer les données en JSON.
 
-Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installation PWA.
+Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs.
 
 ## 2. Fiches à numériser
 
@@ -28,7 +28,7 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 
 ## 3. Principes d'architecture
 
-- **Un seul fichier livré** : `dist/strata-lotpack.html`, autonome (CSS, JS, gabarits inclus), ouvert directement dans le navigateur. Aucun serveur, aucune dépendance réseau.
+- **Un seul fichier livré** : `dist/strata-lotpack.html`, autonome (CSS, JS, gabarits inclus), publié tel quel (en index.html) sur GitHub Pages avec le manifest, le service worker et les icônes. Site statique : aucun serveur applicatif, les données restent sur l'appareil.
 - **Sources modulaires** : le code est découpé en modules, assemblés par un script de build (même approche que Strata Opus).
 - **Local d'abord** : stockage IndexedDB, sauvegarde automatique à chaque modification.
 - **JSON comme format d'échange** : versionné, lisible, réimportable.
@@ -40,6 +40,8 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 
 ```text
 strata-lotpack/
+├── .github/workflows/
+│   └── pages.yml            ← publication GitHub Pages depuis main
 ├── docs/
 │   ├── ARCHITECTURE.md      ← ce document
 │   └── forms/               ← scans PDF des fiches officielles (référence)
@@ -50,32 +52,37 @@ strata-lotpack/
 │   │   └── app.css          ← interface tablette
 │   ├── core/
 │   │   ├── db.js            ← IndexedDB (CRUD, autosave)
-│   │   ├── schema.js        ← modèle + version du schéma
+│   │   ├── schema.js        ← modèle, version du schéma, migrations
 │   │   ├── io.js            ← export / import JSON, fusion
-│   │   ├── rules.js         ← calculs et contrôles
 │   │   ├── pdf.js           ← génération du PDF (pdf-lib)
-│   │   └── mail.js          ← étape Finish & send
-│   ├── forms/               ← un module par fiche (saisie + gabarit PDF)
+│   │   ├── mail.js          ← étape Finish & send, modèle de mail
+│   │   └── pwa.js           ← service worker, « Update available – Reload »
+│   ├── forms/               ← un module par fiche (saisie)
 │   │   ├── approval.js      ← MSF28-6
 │   │   ├── diagram.js       ← MSF28-7
 │   │   ├── traceability.js  ← MSF28-10
-│   │   ├── dip.js           ← MSF28-9
-│   │   ├── survey.js        ← MSF28-12
+│   │   ├── records.js       ← MSF28-9 et MSF28-12
 │   │   └── quantities.js    ← MSF28-11
+│   ├── pwa/
+│   │   ├── manifest.webmanifest
+│   │   ├── sw.js            ← cache hors ligne, version = empreinte du build
+│   │   └── icons/
 │   ├── assets/
 │   │   └── lotpack-template.pdf ← gabarit : PDF officiel sans les numéros de page papier
 │   ├── vendor/
 │   │   └── pdf-lib.min.js   ← pdf-lib (licence MIT), intégré au build
 │   └── ui/
-│       ├── canvas.js        ← dessin et signatures (doigt / stylet)
+│       ├── canvas.js        ← dessin, zoom et signatures (doigt / stylet)
 │       └── components.js
 ├── build/
-│   └── build.js             ← assemble src/ en un seul HTML
+│   └── build.js             ← assemble src/ en un seul HTML + fichiers PWA
 ├── tools/
 │   └── make-template.py     ← génère le gabarit depuis docs/forms (PyMuPDF)
-├── test/                    ← tests automatisés (Playwright)
+├── test/                    ← tests automatisés (Playwright), étapes 1 à 9
 ├── dist/
-│   └── strata-lotpack.html
+│   ├── index.html           ← app publiée (identique à strata-lotpack.html)
+│   ├── strata-lotpack.html  ← même app, utilisable en fichier local
+│   └── manifest.webmanifest, sw.js, icons/
 └── README.md
 ```
 
@@ -126,7 +133,8 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
 
 ### PDF
 
-- Logo COLAS en haut à droite de chaque page, comme sur le papier. Le logo est extrait des fiches officielles de `docs/forms/` vers `src/assets/colas-logo.png`, puis intégré au HTML au build.
+- Logo COLAS en haut à droite de chaque page : il fait partie du PDF officiel utilisé en fond, rien à ajouter.
+- Légendes 3 et suivantes du Site Diagram : imprimées sur une page de suite « Site Diagram — Legends (continued) » (32 lignes par page), placée après les pages de dessin et comptée dans « Page X of Y ». Chaque légende porte sa couleur (pastille + numéro) dans la colonne Key.
 
 ### Dip Record (MSF28-9) et Survey Record (MSF28-12)
 
@@ -137,7 +145,7 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
 ### Gestion des jobs et shifts
 
 - **Menu contextuel** d'un job ou d'un shift : clic droit (appui long sur tactile) → **Duplicate** ou **Delete** (avec confirmation). **Ctrl+C / Ctrl+V** duplique aussi la sélection.
-- La duplication copie **tout le contenu** (fiches, camions, relevés, croquis, signatures) avec de nouveaux `id` ; l'utilisateur supprime ensuite à la main ce qu'il ne veut pas garder.
+- La duplication copie **tout le contenu** (fiches, camions, relevés, croquis, signatures) avec de nouveaux `id` ; l'historique d'envoi est vidé et le statut repasse à draft ; l'utilisateur supprime ensuite à la main ce qu'il ne veut pas garder. Sélection au clic (carte surlignée) ; double-clic, Entrée ou bouton Open pour ouvrir ; Ctrl+C puis Ctrl+V duplique la carte sélectionnée.
 - La liste des shifts reste triée par date (jour avant nuit).
 
 ### Navigation sur téléphone
@@ -152,7 +160,7 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "app": "strata-lotpack",
   "exportedAt": "2026-11-04T09:00:00+08:00",
   "contacts": [{ "name": "", "email": "", "lastUsed": null }],
@@ -184,9 +192,9 @@ Détail des objets :
 
 - **approval** : `checks` (plant, materials, surface, base, thickness, wind, underlying, pavementTemp + sous-cases), `comments`, `colasSign {name, signature, dateTime}`, `clientSign {name, signature, position, dateTime}`, `clientComments`.
 - **traceability** : `tackRate {litres, m2}`, `tackBroken`, `surfaceClean`, `loads[] {no, docket, tonnes, progress, tipTime, temp, chStart, chEnd, run, width, comment}`, `envReadings[] {time, windKmh, pavementTemp}`, `lotSummary {qtyDelivered, qtyPaved, m2Paved, completedBy}`, `qa {tempsRecorded, dipsRecorded, labDiscussed}`.
-- **diagram** : `header`, `pages[] {strokes[], legends[2] {key, mix, layer, depth, area, tonnes}, completedBy}` (une entrée par page de dessin ; traits vectoriels `{c, w, p[[x, y]]}` en coordonnées relatives à la grille, de 0 à 1, redessinés tels quels dans le PDF ; la page 1 porte en plus l'en-tête ; chaque page ajoutée a ses propres légendes et son Completed By).
-- **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey) ; sur le Survey, chaque relevé a deux cases Centre (c et c2 : Centre 1 et Centre 2, comme les deux sous-cases du papier), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
-- **quantities** : `header`, `workDescription`, `payItems[9]`, `contractorItems[10]` `{no, description, detail, estab[], unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}` (`detail` = contenu des parenthèses des lignes préimprimées, `estab` = Crew / MTV / Profiler entourés ; une valeur vide affiche le calcul ou le préremplissage), `variations`, `comments`, `colasSign {name, signature, date}`, `clientSign {name, signature, position, date}`.
+- **diagram** : `pages[] {strokes[], legends[] {color, mix, layer, depth, area, tonnes}}` (une entrée par page de dessin ; traits vectoriels `{c, w, p[[x, y]]}` en coordonnées relatives à la grille, de 0 à 1, redessinés tels quels dans le PDF ; plus d'en-tête ni de Completed By dans la fiche, repris du job et du shift ; `color` = Key et couleur de trait ; `mix`, `layer`, `depth` vides = valeurs du shift (Product, Layer de l'Approval, Nominated thickness) ; `layer` devient une liste dès qu'une case est modifiée).
+- **dipRecord / survey** : id, date (vide = date du shift), mixType (vide = Product du shift), frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey) ; sur le Survey, chaque relevé a deux cases Centre (c et c2 : Centre 1 et Centre 2, comme les deux sous-cases du papier), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
+- **quantities** : `payItems[9]`, `contractorItems[10]` `{no, description, detail, estab[], unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}` (`detail` = contenu des parenthèses des lignes préimprimées, `estab` = Crew / MTV / Profiler entourés ; une valeur vide affiche le calcul ou le préremplissage), `variations`, `comments`, `colasSign {name, signature, date}`, `clientSign {name, signature, position, date}`. Plus d'en-tête : client, projet, job, suburb, plant et haulage viennent du job et du shift, la Work Description est calculée.
 
 Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur. La fusion se fait poste par poste (les détails du job à part) ; le rapport (ajouté, remplacé, conservé, heures à la seconde) s'affiche avant d'appliquer. Les réglages de l'appareil ne sont jamais écrasés ; les contacts sont fusionnés par adresse ; un fichier d'une version plus récente de l'app est refusé. Export complet depuis Settings, export d'un job depuis l'écran Job. Limite : une suppression n'est pas propagée (un poste supprimé sur un appareil revient si l'on importe un fichier qui le contient).
 
@@ -218,20 +226,28 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 2. Génération du PDF avec pdf-lib, sur le PDF officiel en fond (`core/pdf.js`), sans passer par la boîte d'impression, pour que le fichier puisse être joint automatiquement au brouillon : fiches au format officiel, **incohérences du papier corrigées** (numéros de page du papier retirés du gabarit, bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires reprennent la page 5 du papier, codée MSF28-7 ; la page 9 du papier (grille seule, codée à tort MSF28-12) n'est pas utilisée). Ordre des fiches dans le PDF : MSF28-6 Approval, MSF28-7 Site Diagram (+ pages de dessin), MSF28-10 Traceability (+ pages de suite), MSF28-9 Dip Record, MSF28-12 Survey Record, MSF28-11 Quantity & Placement ; une fiche optionnelle non ajoutée est simplement absente.
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
-5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du lotpack>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
+5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <job> – <date du lotpack> (Day/Night)`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
    - Tablette / téléphone : bouton « Share to Outlook » (Web Share API avec fichiers) → choix de l'app Outlook → brouillon avec PDF + JSON joints, objet et corps transmis. Le partage ne transmet pas les destinataires : les adresses To / CC sont copiées dans le presse-papiers, à coller dans le brouillon. Le bouton « Email draft (attach manually) » reste proposé en second choix. Le PDF est construit à l'ouverture de l'écran, pour que le partage parte dès le toucher.
    - Si le partage de fichiers n'est pas disponible (ordinateur) : téléchargement du PDF + JSON, puis ouverture d'un brouillon `mailto` prérempli ; les fichiers sont joints à la main (limite technique des liens mailto).
    - Hors connexion : le brouillon est créé quand même ; il part de la boîte d'envoi dès que le réseau revient.
 6. **Historique d'envoi** dans chaque shift et chaque job : expéditeur, destinataires, CC, date et heure de création du brouillon, moyen utilisé (partage ou brouillon mailto) ; le poste passe au statut sent. Un partage annulé n'est pas enregistré.
 
-**Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet et le corps portent la date saisie dans le lotpack (date du poste), qui est le plus souvent le jour de l'envoi. Un champ vide est simplement omis.
+**Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet et le corps portent la date saisie dans le lotpack (date du poste), qui est le plus souvent le jour de l'envoi. Un champ vide est simplement omis. L'objet et le corps sont modifiables dans Finish & send avant l'ouverture du brouillon (bouton « Reset to default text » pour revenir au modèle).
 
 ```text
-Subject: Lotpack – {shiftDate}
+Subject: Lotpack – {jobNumber} {projectTitle} – {shiftDate} ({Day|Night})
 
 Hi,
 
-Please find attached the lot pack for {projectTitle} – {shiftDate}.
+Please find attached the lot pack for {jobNumber} {projectTitle} – {shiftDate} ({Day|Night} shift).
+
+Sheets included:
+- Approval to Proceed (MSF28-6)
+- Site Diagram (MSF28-7)[ – {n} drawing pages]
+- Asphalt Traceability (MSF28-10)
+- Pavement Measured Dip Record {i} (MSF28-9)     (si ajouté)
+- Survey Record {i} (MSF28-12)                   (si ajouté)
+- Quantity & Placement Agreement (MSF28-11)
 
 Attachments:
 - {pdfFileName}
@@ -255,6 +271,7 @@ Regards,
 | 6 | Quantity & Placement | Items, totaux, signatures |
 | 7 | PDF complet + Finish & send | Pack complet envoyé par mail depuis une tablette |
 | 8 | Export / import JSON | Aller-retour sans perte entre deux appareils |
+| 9 | PWA + GitHub Pages | App installée, utilisable hors ligne, « Update available – Reload » à chaque nouvelle version |
 
 ## 10. Conventions
 
@@ -273,15 +290,15 @@ Regards,
 ## 10 ter. Publication et installation
 
 - **Dépôt public** + **GitHub Pages** : le fichier `dist/strata-lotpack.html` est publié en `index.html` à l'adresse `https://pierrelgeli-bit.github.io/strata-lotpack/`. Le dépôt reste public (sur un compte gratuit, le repasser en privé désactive le site).
-- Publication depuis `main` uniquement, donc seulement après validation de PL. La branche `test` n'est jamais publiée.
-- **Application installable (PWA)** : ajouter `manifest.webmanifest` (nom « Strata Lotpack », icônes, couleurs jour / nuit, affichage plein écran) et un **service worker** qui met l'app en cache pour un fonctionnement 100 % hors ligne après la première ouverture.
+- Publication depuis `main` uniquement, donc seulement après validation de PL. La branche `test` n'est jamais publiée. Le workflow .github/workflows/pages.yml reconstruit l'app et publie dist/ à chaque push sur main.
+- **Application installable (PWA)** : `manifest.webmanifest` (nom « Strata Lotpack », icônes, couleurs jour / nuit, affichage plein écran) et un **service worker** qui met l'app en cache pour un fonctionnement 100 % hors ligne après la première ouverture.
 - Mise à jour : le service worker détecte une nouvelle version et propose « Update available – Reload ».
 - Installation sur téléphone / tablette : ouvrir l'adresse une fois avec réseau, puis iPhone/iPad « Partager → Sur l'écran d'accueil », Android « ⋮ → Installer l'application ».
-- Les données restent uniquement sur l'appareil (IndexedDB). Le site ne sert qu'à distribuer le code. Rappeler dans Settings de faire un export JSON régulier : effacer les données du navigateur supprime les loadpacks.
-- La page HTTPS est nécessaire au partage natif avec pièces jointes (Web Share API) ; l'ouverture du fichier en local (`file://`) n'est pas prise en charge.
+- Les données restent uniquement sur l'appareil (IndexedDB). Le site ne sert qu'à distribuer le code. Rappeler dans Settings de faire un export JSON régulier : effacer les données du navigateur supprime les lotpacks.
+- La page HTTPS est nécessaire au partage natif avec pièces jointes (Web Share API) ; l'ouverture du fichier en local (`file://`) reste possible en secours, sans installation ni mise à jour automatique.
 
 ## 11. Questions ouvertes
 
-1. Hébergement : fichier local pour le moment (dist/strata-lotpack.html copié sur chaque tablette ou téléphone). Conséquences : le partage de fichiers (Share to Outlook) sera souvent indisponible, l'app propose alors le brouillon mailto avec PDF + JSON à joindre à la main ; les données sont liées à l'emplacement du fichier, donc une mise à jour remplace le fichier au même endroit et sous le même nom ; faire un export JSON avant toute mise à jour. Passage en https à réétudier plus tard.
+1. Aucune question ouverte. Hébergement tranché : GitHub Pages + PWA (voir 10 ter) ; le fichier local reste utilisable en secours.
 
-Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires, chacune avec ses légendes ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8) ; PDF généré par pdf-lib sur le PDF officiel en fond, et joint automatiquement ; développement étape par étape, avec validation de PL entre chaque étape ; hébergement en fichier local pour le moment.
+Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires, chacune avec ses légendes ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8) ; PDF généré par pdf-lib sur le PDF officiel en fond, et joint automatiquement ; développement étape par étape, avec validation de PL entre chaque étape ; hébergement sur GitHub Pages + PWA (dépôt public) ; légendes 3 et suivantes du Site Diagram sur une page de suite ; mail enrichi (job, shift, liste des fiches) et modifiable ; sélection d'une carte au clic, ouverture au double-clic ou par le bouton Open, Ctrl+C / Ctrl+V pour dupliquer ; duplication remise à zéro (historique d'envoi vidé, statut draft).

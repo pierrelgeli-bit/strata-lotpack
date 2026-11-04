@@ -124,7 +124,7 @@ const pdfText = async (page) => {
   const expA1 = await exportAll(A.page, 'step8-A1.json');
   check(/^Strata-Lotpack_export_\d{4}-\d{2}-\d{2}\.json$/.test(expA1.name), `Export file name ${expA1.name}`);
   const dataA1 = JSON.parse(fs.readFileSync(expA1.path, 'utf8'));
-  check(dataA1.schemaVersion === 1 && dataA1.app === 'strata-lotpack' && dataA1.jobs.length === 1 && dataA1.contacts.length === 1 && dataA1.settings.alwaysCc === 'qa@colas.com.au', 'Export holds jobs, contacts and settings');
+  check(dataA1.schemaVersion === 2 && dataA1.app === 'strata-lotpack' && dataA1.jobs.length === 1 && dataA1.contacts.length === 1 && dataA1.settings.alwaysCc === 'qa@colas.com.au', 'Export holds jobs, contacts and settings');
   const rep1 = await importFile(B.page, expA1.path);
   check(rep1.includes('1 job(s) added, 1 shift(s) added, 0 replaced, 0 kept') && rep1.includes('1 contact(s) added'), 'Report before applying: 1 job + 1 shift + 1 contact added');
   check(await dump(A.page) === await dump(B.page), 'Round trip A → B: jobs identical byte for byte (signatures, sketch, 25 trucks, dip, survey, quantities)');
@@ -178,7 +178,7 @@ const pdfText = async (page) => {
 
   // ---- 4. Single job export (Job screen) imports too ----
   await B.page.goto(url + '#/');
-  await B.page.locator('.card').first().click();
+  await B.page.locator('.card').first().dblclick();
   const [dlJob] = await Promise.all([B.page.waitForEvent('download'), B.page.getByRole('button', { name: 'Export job (JSON)' }).click()]);
   const jobFile = path.join(outDir, 'step8-job.json');
   await dlJob.saveAs(jobFile);
