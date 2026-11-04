@@ -14,6 +14,8 @@
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
     diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
     diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
+    dip: { index: 6, pageNo: { cx: 320, baselineTop: 829.6, size: 9 } },
+    survey: { index: 7, pageNo: { cx: 320, baselineTop: 832.5, size: 9 } },
     traceability: { index: 1, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
     traceabilityCont: { index: 2, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
   };
@@ -89,6 +91,79 @@
         { key: [323, 352], mix: [407, 469], area: [527, 572] },
       ],
       completedBy: [147, 571, 801.6],
+    },
+  };
+
+  // MSF28-9 and MSF28-12: header, 3 blocks, reading rows. Words to circle: [x0, x1]; ticks: [cx, cy]
+  const REC = {
+    dip: {
+      header: [
+        ['client', 116, 311, 102.6], ['date', 464, 573, 102.6],
+        ['projectTitle', 116, 311, 115.8], ['jobNumber', 464, 573, 115.8],
+        ['mixType', 116, 311, 129.0], ['frequency', 464, 573, 129.0],
+      ],
+      surface: { asphalt: [124.0, 138.5], granular: [168.0, 138.5], seal: [217.7, 138.5] },
+      sealSize: [267, 289, 142.6],
+      extra: [['compactionFactor', 375, 403, 148.5], ['upperLimit', 464, 492, 148.5], ['lowerLimit', 545, 573, 148.5]],
+      courseRow: [159.9, 170.9], // word box raised 2.2 pt: capitals sit above the box centre
+      base: { len: 185.5, off: 211.0, dir: 223.5, rw: 263.2 },
+      blocks: [
+        {
+          course: { CC: [95.9, 111.8], IC: [144.4, 155.5], WC: [186.1, 204.5] }, length: [88, 120], depth: [180, 210],
+          off: { l: [87, 121], c: [122, 177], r: [179, 211] }, direction: [88, 210],
+          level: { survey: [92.1, 235.8], nominal: [152.6, 235.8] }, run: [74, 113], width: [172, 210],
+          cols: { ch: [29.6, 71.9], l: [72.4, 114.4], c: [114.8, 170.0], r: [170.5, 212.0] },
+        },
+        {
+          course: { CC: [283.0, 298.8], IC: [318.4, 329.5], WC: [358.9, 377.3] }, length: [279, 311], depth: [355, 393],
+          off: { l: [278, 312], c: [314, 354], r: [356, 393] }, direction: [279, 393],
+          level: { survey: [307.5, 235.8], nominal: [365.1, 235.8] }, run: [279, 311], width: [357, 393],
+          cols: { ch: [225.6, 277.3], l: [277.8, 312.7], c: [313.2, 355.3], r: [355.8, 394.8] },
+        },
+        {
+          course: { CC: [467.3, 483.2], IC: [495.6, 506.7], WC: [545.2, 563.6] }, length: [463, 489], depth: [541, 573],
+          off: { l: [463, 489], c: [491, 538], r: [541, 573] }, direction: [464, 573],
+          level: { survey: [489.7, 235.8], nominal: [547.4, 235.8] }, run: [463, 490], width: [541, 573],
+          cols: { ch: [407.0, 461.6], l: [462.1, 491.9], c: [492.4, 539.5], r: [540.0, 575.0] },
+        },
+      ],
+      rowTop0: 279.7, rowH: 13.155, rows: 38,
+      completedBy: [116, 573, 789.5],
+    },
+    survey: {
+      header: [
+        ['client', 109, 297, 80.8], ['date', 420, 573, 80.8],
+        ['projectTitle', 109, 297, 94.0], ['jobNumber', 420, 573, 94.0],
+        ['mixType', 109, 297, 107.2], ['frequency', 420, 573, 107.2],
+      ],
+      surface: { asphalt: [120.8, 123.5], granular: [164.8, 123.5], seal: [214.5, 123.5] },
+      sealSize: [262, 286, 127.8],
+      surveyBy: { colas: [444.5, 124.1], client: [520.3, 124.1] },
+      courseRow: [138.2, 149.2],
+      layerRow: [187.3, 198.3],
+      base: { len: 160.5, off: 183.3, dir: 210.0, rw: 224.8 },
+      blocks: [
+        {
+          course: { CC: [94.2, 110.1], IC: [140.0, 151.1], WC: [178.3, 196.7] }, length: [86, 118], depth: [173, 202],
+          off: { l: [86, 118], c: [121, 170], r: [173, 202] }, direction: [86, 202],
+          layer: { 1: [99.1, 105.3], 2: [142.6, 148.7], 3: [184.4, 190.6] }, run: [79, 105], width: [157, 202],
+          cols: { ch: [29.6, 77.0], l: [77.5, 106.9], c: [107.4, 129.7], r: [155.6, 203.2] },
+        },
+        {
+          course: { CC: [281.0, 296.9], IC: [330.4, 341.5], WC: [369.4, 387.8] }, length: [270, 308], depth: [364, 393],
+          off: { l: [270, 308], c: [310, 361], r: [364, 393] }, direction: [270, 393],
+          layer: { 1: [286.0, 292.1], 2: [332.8, 338.9], 3: [375.5, 381.6] }, run: [271, 298], width: [347, 393],
+          cols: { ch: [214.8, 269.3], l: [269.8, 299.2], c: [299.6, 321.6], r: [346.0, 394.4] },
+        },
+        {
+          course: { CC: [469.7, 485.6], IC: [512.0, 523.1], WC: [550.2, 568.6] }, length: [465, 490], depth: [545, 573],
+          off: { l: [465, 490], c: [493, 542], r: [545, 573] }, direction: [465, 573],
+          layer: { 1: [474.5, 480.6], 2: [514.6, 520.7], 3: [556.3, 562.5] }, run: [456, 480], width: [527, 573],
+          cols: { ch: [406.7, 451.4], l: [451.9, 481.1], c: [481.6, 505.0], r: [529.8, 575.0] },
+        },
+      ],
+      rowTop0: 240.8, rowH: 13.16, rows: 40,
+      completedBy: [109, 573, 776.0],
     },
   };
 
@@ -335,6 +410,40 @@
     drawLegends(w, L, dp, dp.completedBy || shift.completedBy);
   }
 
+  async function drawRecord(doc, page, fonts, job, shift, entry) {
+    const w = writer(page, fonts);
+    const L = REC[entry.kind];
+    const rec = SL.forms[entry.kind].ensure(entry.rec);
+    const hv = headerValues(job, shift, rec);
+    const vals = { ...hv, mixType: rec.mixType, frequency: rec.frequency };
+    L.header.forEach(([k, x0, x1, top]) => w.text(vals[k], x0, x1, top, 9.5));
+    const sf = L.surface[rec.existingSurface];
+    if (sf) w.tick(sf[0], sf[1], 2.6);
+    w.text(rec.sealSize, ...L.sealSize, 8, { align: 'center' });
+    if (L.extra) L.extra.forEach(([k, x0, x1, top]) => w.text(fmtNum(rec[k]), x0, x1, top, 9, { align: 'center' }));
+    if (L.surveyBy && L.surveyBy[rec.surveyBy]) w.tick(...L.surveyBy[rec.surveyBy]);
+
+    const t = (v, [x0, x1], base, size = 8.5) => w.text(fmtNum(v), x0 + 1, x1 - 1, base, size, { align: 'center' });
+    rec.courses.forEach((b, bi) => {
+      const B = L.blocks[bi];
+      if (B.course[b.course]) w.circle([...B.course[b.course], ...L.courseRow]);
+      t(b.length, B.length, L.base.len); t(b.depth, B.depth, L.base.len);
+      t(b.offsets.l, B.off.l, L.base.off); t(b.offsets.c, B.off.c, L.base.off); t(b.offsets.r, B.off.r, L.base.off);
+      w.text(b.direction, B.direction[0], B.direction[1], L.base.dir, 8.5);
+      if (B.level && B.level[b.level]) w.tick(...B.level[b.level]);
+      if (B.layer && B.layer[b.layer]) w.circle([...B.layer[b.layer], ...L.layerRow]);
+      t(b.run, B.run, L.base.rw); t(b.width, B.width, L.base.rw);
+      b.readings.slice(0, L.rows).forEach((rd, i) => {
+        const base = L.rowTop0 + i * L.rowH + 9.5;
+        ['ch', 'l', 'c', 'r'].forEach((k) => t(rd[k], B.cols[k], base, 8));
+      });
+    });
+    w.text(rec.completedBy || shift.completedBy, ...L.completedBy, 10);
+  }
+
+  const recordPages = (shift, kind) => SL.forms[kind].records(shift)
+    .map((rec) => ({ template: kind, draw: drawRecord, kind, rec }));
+
   function diagramPages(shift) {
     const d = SL.forms.diagram.ensure(shift);
     return d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
@@ -411,6 +520,8 @@
       { template: 'approval', draw: drawApproval },
       ...diagramPages(shift),
       ...tracePages(shift),
+      ...recordPages(shift, 'dip'),
+      ...recordPages(shift, 'survey'),
     ];
   }
 
@@ -460,5 +571,5 @@
     return `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}.pdf`;
   }
 
-  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, TEMPLATES } };
+  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, REC, TEMPLATES } };
 })(window.SL = window.SL || {});

@@ -46,7 +46,7 @@ async function openApp(profile, viewport) {
   await page.locator('.shift-details').getByLabel('Completed by').fill('PL');
   await page.locator('.shift-details').getByLabel('Date').fill('2026-11-04');
   await page.getByText('Saved').waitFor();
-  check(await page.locator('.tab').count() === 4, '4 base sheet tabs in a shift');
+  check(await page.locator('.tab[role=tab]').count() === 4, '4 base sheet tabs in a shift (+ add buttons for optional sheets)');
   if (shots) await page.screenshot({ path: path.join(shots, 'step1-shift-tablet.png') });
 
   // Second shift inherits product and completed by

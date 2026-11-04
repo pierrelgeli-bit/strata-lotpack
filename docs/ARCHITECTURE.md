@@ -22,8 +22,8 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 | MSF28-6 | V3R2 – 05/09/2024 | Approval to Proceed / Hold Point Release | En-tête, type de travaux, couche, checklist de vérification, commentaires, signatures COLAS et client. Une par poste |
 | MSF28-7 | V2R3 – 13/09/2024 | Site Diagram | Croquis sur grille, légendes (key, mix, layer, depth, area, tonnes), completed by. Pages de dessin supplémentaires ajoutables à la demande, sur le modèle de la page 5 du papier : grille, 2 légendes et Completed By propres à chaque page |
 | MSF28-10 | V1R5 – 13/09/2024 | Asphalt Traceability | En-tête + météo + tack coat, une ligne par camion, relevés vent / température chaussée toutes les 2 h, lot summary, QA checklist. 23 lignes en page 1, pages de suite de 31 lignes |
-| MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite. Optionnelle : ajoutée au lotpack à la demande |
-| MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client. Optionnelle : ajoutée au lotpack à la demande |
+| MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite, 38 lignes par bloc (au-delà, nouvelle fiche). Optionnelle : ajoutée au lotpack à la demande |
+| MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client, 40 lignes par bloc (au-delà, nouvelle fiche). Optionnelle : ajoutée au lotpack à la demande |
 | MSF28-11 | V2R4 – 13/09/2024 | Quantity & Placement Agreement | Pay items, contractor items, quantités, waste, m², variations, signatures |
 
 ## 3. Principes d'architecture
@@ -118,7 +118,7 @@ Détail des objets :
 - **approval** : `checks` (plant, materials, surface, base, thickness, wind, underlying, pavementTemp + sous-cases), `comments`, `colasSign {name, signature, dateTime}`, `clientSign {name, signature, position, dateTime}`, `clientComments`.
 - **traceability** : `tackRate {litres, m2}`, `tackBroken`, `surfaceClean`, `loads[] {no, docket, tonnes, progress, tipTime, temp, chStart, chEnd, run, width, comment}`, `envReadings[] {time, windKmh, pavementTemp}`, `lotSummary {qtyDelivered, qtyPaved, m2Paved, completedBy}`, `qa {tempsRecorded, dipsRecorded, labDiscussed}`.
 - **diagram** : `header`, `pages[] {strokes[], legends[2] {key, mix, layer, depth, area, tonnes}, completedBy}` (une entrée par page de dessin ; traits vectoriels `{c, w, p[[x, y]]}` en coordonnées relatives à la grille, de 0 à 1, redessinés tels quels dans le PDF ; la page 1 porte en plus l'en-tête ; chaque page ajoutée a ses propres légendes et son Completed By).
-- **dipRecord / survey** : en-tête (mixType, frequency, existingSurface, sealSize, compactionFactor, upperLimit, lowerLimit ou surveyBy), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
+- **dipRecord / survey** : id, header (en-tête modifié sur la fiche), mixType, frequency, existingSurface (asphalt, granular ou seal), sealSize, completedBy ; Dip : compactionFactor, lowerLimit, upperLimit ; Survey : surveyBy (colas ou client) ; dans chaque bloc, level vaut survey ou nominal (Dip) et layer vaut 1, 2 ou 3 (Survey), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
 - **quantities** : `payItems[]`, `contractorItems[]` `{no, description, unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}`, `variations`, `comments`, signatures.
 
 Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'emporte, avec un rapport des conflits affiché à l'utilisateur.
@@ -129,7 +129,7 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 - Les tableaux se remplissent ligne par ligne avec un bouton « Add row », comme sur papier.
 - Les tonnes cumulées (progress) sont calculées automatiquement.
 - Relevés vent / température chaussée : une ligne ajoutée à chaque relevé, avec l'heure, dans une liste séparée des camions. Dans le PDF, chaque relevé va dans les colonnes jaunes de la ligne camion la plus proche dans le temps (le relevé avant démarrage sur la 1re ligne), avec son heure en petit. Rappel discret si plus de 2 h depuis le dernier relevé, sans obligation.
-- Limites (température, vent, dips) saisies directement dans la fiche, pas de valeurs codées en dur. Traçabilité : traceability.limits {minLoadTemp, maxWind, minPavementTemp}, non imprimées ; tackBroken et surfaceClean valent yes, no ou vide (réponse entourée dans le PDF).
+- Limites (température, vent, dips) saisies directement dans la fiche, pas de valeurs codées en dur. Traçabilité : traceability.limits {minLoadTemp, maxWind, minPavementTemp}, non imprimées ; tackBroken et surfaceClean valent yes, no ou vide (réponse entourée dans le PDF). Dip Record : chaque relevé brut (Left, Centre, Right) est comparé à Lower et Upper Dip Limit ; hors limites, avertissement et case surlignée, sans blocage ; le Compaction Factor est seulement reporté.
 - Avertissement tant que l'Approval to Proceed du poste n'est pas signé.
 - Une seule couche / un seul enrobé par fiche de traçabilité, sinon commentaire conseillé.
 - Lot summary : QTY Delivered et QTY Paved préremplis avec la somme des tonnes des camions (modifiables) ; m² paved saisi à la main.

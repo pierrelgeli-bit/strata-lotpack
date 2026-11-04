@@ -133,14 +133,22 @@
     const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = formatDate(shift.date) || 'No date'; };
     const dateCrumb = h('span', {}, formatDate(shift.date) || 'No date');
 
-    const tab = state.shiftTab[shift.id] || SHEETS[0].key;
-    const sheet = SHEETS.find((s) => s.key === tab) || SHEETS[0];
-    const form = SL.forms && SL.forms[sheet.key];
+    // Base sheets, then the optional Dip / Survey Records added to this shift (PDF order)
+    const F = SL.forms || {};
+    const sheets = [
+      ...SHEETS.map((s) => ({ ...s, form: F[s.key] })),
+      ...['dip', 'survey'].filter((k) => F[k]).flatMap((k) => F[k].records(shift).map((rec) => ({
+        key: `${k}:${rec.id}`, code: F[k].code, name: F[k].label(shift, rec), form: F[k], rec,
+      }))),
+    ];
+    const tab = state.shiftTab[shift.id] || sheets[0].key;
+    const sheet = sheets.find((s) => s.key === tab) || sheets[0];
+    const form = sheet.form;
 
     // Completeness dot on each tab, refreshed as the sheet is filled
     const STATUS_LABEL = { empty: 'Empty', progress: 'In progress', complete: 'Complete' };
-    const statusOf = (s) => (SL.forms && SL.forms[s.key] ? SL.forms[s.key].status(job, shift) : 'empty');
-    const tabEls = SHEETS.map((s) => {
+    const statusOf = (s) => (s.form ? s.form.status(job, shift, s.rec) : 'empty');
+    const tabEls = sheets.map((s) => {
       const dot = h('i', { class: 'dot' });
       const el = h('button', {
         type: 'button', role: 'tab', class: `tab${s.key === sheet.key ? ' active' : ''}`,
@@ -151,7 +159,16 @@
       el.refresh();
       return el;
     });
-    const tabs = h('div', { class: 'tabs', role: 'tablist' }, tabEls);
+    // Optional sheets are added on demand
+    const addRecord = (k) => {
+      const rec = F[k].add(shift);
+      SL.db.touch(job, shift);
+      state.shiftTab[shift.id] = `${k}:${rec.id}`;
+      renderShift(jobId, shiftId);
+    };
+    const tabs = h('div', { class: 'tabs', role: 'tablist' }, tabEls,
+      F.dip ? h('button', { type: 'button', class: 'tab add-tab', onclick: () => addRecord('dip') }, '+ Dip Record', h('small', {}, 'MSF28-9')) : null,
+      F.survey ? h('button', { type: 'button', class: 'tab add-tab', onclick: () => addRecord('survey') }, '+ Survey Record', h('small', {}, 'MSF28-12')) : null);
 
     // Non-blocking warnings (e.g. approval not signed)
     const warnEl = h('div', { class: 'warn', role: 'status' });
@@ -193,7 +210,9 @@
         h('div', { class: 'row-head' },
           h('h2', {}, `${sheet.name} — ${sheet.code}`),
           form ? button('Preview PDF', () => previewPdf(job, shift)) : null),
-        form ? form.render(job, shift, saveSheet) : h('p', { class: 'muted' }, 'This sheet is not built yet.')),
+        form
+          ? form.render(job, shift, saveSheet, sheet.rec, () => { state.shiftTab[shift.id] = 'approval'; renderShift(jobId, shiftId); })
+          : h('p', { class: 'muted' }, 'This sheet is not built yet.')),
       h('div', { class: 'actions' },
         button('Preview PDF', () => previewPdf(job, shift), 'primary'),
         button('Delete shift', delShift, 'danger')),

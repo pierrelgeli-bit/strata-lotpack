@@ -203,6 +203,13 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 fieldset.legend { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px 12px; margin: 0; }
 fieldset.legend legend { font-weight: 600; padding: 0 6px; }
 
+/* Dip / Survey records */
+.tab.add-tab { border-style: dashed; color: var(--muted); }
+.blocks { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.block-set { display: flex; flex-direction: column; gap: 10px; }
+h4 { font-size: 15px; margin: 6px 0 0; }
+input.out { border-color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 12%, var(--bg)) !important; }
+
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
 .sig-box { position: relative; background: #fff; border: 1px dashed #8a929e; border-radius: 8px; height: 160px; }
