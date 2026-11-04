@@ -81,7 +81,74 @@ strata-lotpack/
 
 ## 5. Modèle de données
 
-Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shifts** (un lotpack par poste). Chaque shift est créé avec ses fiches de base vides (MSF28-6, MSF28-7, MSF28-10, MSF28-11), à remplir ensuite. Le Dip Record (MSF28-9), le Survey Record (MSF28-12) et les pages de dessin supplémentaires du Site Diagram s'ajoutent à la demande. Les champs communs (client, projet, job number, suburb, produit, nom du rédacteur « Completed by ») sont saisis une fois et transmis automatiquement de fiche en fiche ; ils restent modifiables localement. Une seule personne par équipe utilise la tablette.
+Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shifts** (un lotpack par poste), chacun créé avec toutes ses fiches vides. Une seule personne par équipe utilise la tablette.
+
+- **Job details** (panneau repliable en haut du job) : `client`, `projectTitle`, `jobNumber`.
+- **Liste des shifts** : toujours triée par date croissante (le 3 novembre avant le 4, quel que soit l'ordre de création), puis jour avant nuit.
+- **Shift details** (panneau repliable en haut du shift, au-dessus de toutes les fiches) : `date`, `shiftType` (Day / Night), `suburb`, `supplyingPlant`, `haulageKm`, `product`, `nominatedThickness`, `completedBy`.
+- Les en-têtes des fiches ne sont plus saisis dans chaque fiche : ils sont repris automatiquement du job et du shift (écran et PDF). Exemple : l'Approval to Proceed ne garde que Type of work, Layer, la checklist de vérification, les commentaires et les signatures.
+
+* `shiftType` (Day / Night) reste uniquement dans l'app ; il n'apparaît pas sur le PDF.
+
+### Site Diagram (MSF28-7)
+
+- **Pas d'en-tête ni de Type of work** dans la fiche : ces infos sont déjà dans Shift details et l'Approval to Proceed. Pas de champ Completed by en bas (repris de Shift details).
+- **Plein écran** pour dessiner.
+- **Zoom** : pincer à deux doigts pour zoomer et se déplacer sur la zone voulue ; un doigt ou le stylet dessine à l'endroit zoomé. Boutons + / − / « Fit » en complément. Le trait reste fin quel que soit le zoom, pour pouvoir ajouter de petits détails.
+- **Légendes** : seule « Legend 1 » est affichée au départ ; un bouton **+** ajoute une légende (Legend 2, 3…), chacune avec une nouvelle couleur.
+- Champs d'une légende :
+  - **Key** : la couleur, choisie dans la palette ; c'est aussi la couleur de trait associée.
+  - **Mix** : le type d'enrobé.
+  - **Layer** : cases Base / Intermediate / Wearing / Correction / Other, précochées comme dans l'Approval to Proceed, modifiables.
+  - **Depth** : liée au Nominated thickness de Shift details, modifiable.
+  - **Tonnes** : saisie manuelle.
+- Sur le PDF : la grille et le croquis à l'échelle de la page, puis le tableau des légendes.
+
+* Légende : **Area (m²)** conservée, saisie manuelle. **Mix** prérempli avec le Product du shift, modifiable.
+
+### Asphalt Traceability (MSF28-10)
+
+- En-tête supprimé, sauf **Weather conditions** (bloc repliable).
+- Questionnaire tack coat (application rate, tack coat broken, surface clean) conservé, **repliable**.
+- Type of work et Layer supprimés.
+- **Lignes camions repliables** (téléphone et tablette) : repliée, une ligne montre seulement **Load No, Docket No, Progress tonnes** ; dépliée, tous les champs. Bouton « Add load ».
+- **Relevés Wind / Pavement temp** : même principe, repliables.
+- Lot summary et QA checklist inchangés.
+
+### Quantity & Placement (MSF28-11)
+
+- En-tête entièrement supprimé (client, date, project title, job number, suburb, work description). **Supplying plant** et **Haulage distance** viennent de Shift details.
+- Restent : pay items, contractor items, variations, commentaires, signatures.
+
+### Signatures
+
+- Le nom du représentant COLAS est prérempli avec le **Completed by** du shift, modifiable.
+
+### PDF
+
+- Logo COLAS en haut à droite de chaque page, comme sur le papier. Le logo est extrait des fiches officielles de `docs/forms/` vers `src/assets/colas-logo.png`, puis intégré au HTML au build.
+
+### Dip Record (MSF28-9) et Survey Record (MSF28-12)
+
+- Client, Project title et Job number supprimés.
+- **Date** préremplie avec celle du shift, modifiable sans changer la date du shift.
+- **Mix type** prérempli avec le Product du shift, modifiable.
+
+### Gestion des jobs et shifts
+
+- **Menu contextuel** d'un job ou d'un shift : clic droit (appui long sur tactile) → **Duplicate** ou **Delete** (avec confirmation). **Ctrl+C / Ctrl+V** duplique aussi la sélection.
+- La duplication copie **tout le contenu** (fiches, camions, relevés, croquis, signatures) avec de nouveaux `id` ; l'utilisateur supprime ensuite à la main ce qu'il ne veut pas garder.
+- La liste des shifts reste triée par date (jour avant nuit).
+
+### Navigation sur téléphone
+
+- La barre d'onglets des fiches défile horizontalement ; l'onglet sélectionné reste centré et visible au changement de fiche, la barre ne revient pas au début.
+
+### Mail modifiable
+
+- Un **modèle par défaut** intégré à l'app génère l'objet et le corps (job, shift, date, fiches jointes). Pas de réglage dans Settings.
+- Dans l'écran Finish & send, l'objet et le corps sont **entièrement modifiables** avant l'ouverture du brouillon.
+- Limite connue : sur ordinateur, les pièces jointes ne s'ajoutent pas automatiquement au brouillon Outlook.
 
 ```json
 {
@@ -92,10 +159,10 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
   "settings": { "theme": "system", "alwaysCc": "", "defaultCompletedBy": "" },
   "jobs": [{
     "id": "uuid",
-    "client": "", "projectTitle": "", "jobNumber": "", "suburb": "",
-    "supplyingPlant": "", "haulageKm": null,
+    "client": "", "projectTitle": "", "jobNumber": "",
     "shifts": [{
-      "id": "uuid", "date": "2026-11-04",
+      "id": "uuid", "date": "2026-11-04", "shiftType": "day",
+      "suburb": "", "supplyingPlant": "", "haulageKm": null,
       "product": "", "nominatedThickness": null,
       "workType": ["supplyLay"], "layer": ["wearing"],
       "weather": "",
@@ -202,6 +269,16 @@ Regards,
 - Deux branches : `main` (version validée) et `test` (développement).
 - **Tout le développement se fait sur `test`.** Aucun merge ni push vers `main` sans instruction explicite de PL.
 - Ce document est versionné dans `docs/ARCHITECTURE.md`.
+
+## 10 ter. Publication et installation
+
+- **Dépôt public** + **GitHub Pages** : le fichier `dist/strata-lotpack.html` est publié en `index.html` à l'adresse `https://pierrelgeli-bit.github.io/strata-lotpack/`. Le dépôt reste public (sur un compte gratuit, le repasser en privé désactive le site).
+- Publication depuis `main` uniquement, donc seulement après validation de PL. La branche `test` n'est jamais publiée.
+- **Application installable (PWA)** : ajouter `manifest.webmanifest` (nom « Strata Lotpack », icônes, couleurs jour / nuit, affichage plein écran) et un **service worker** qui met l'app en cache pour un fonctionnement 100 % hors ligne après la première ouverture.
+- Mise à jour : le service worker détecte une nouvelle version et propose « Update available – Reload ».
+- Installation sur téléphone / tablette : ouvrir l'adresse une fois avec réseau, puis iPhone/iPad « Partager → Sur l'écran d'accueil », Android « ⋮ → Installer l'application ».
+- Les données restent uniquement sur l'appareil (IndexedDB). Le site ne sert qu'à distribuer le code. Rappeler dans Settings de faire un export JSON régulier : effacer les données du navigateur supprime les loadpacks.
+- La page HTTPS est nécessaire au partage natif avec pièces jointes (Web Share API) ; l'ouverture du fichier en local (`file://`) n'est pas prise en charge.
 
 ## 11. Questions ouvertes
 
