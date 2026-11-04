@@ -32,9 +32,9 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 - **Sources modulaires** : le code est découpé en modules, assemblés par un script de build (même approche que Strata Opus).
 - **Local d'abord** : stockage IndexedDB, sauvegarde automatique à chaque modification.
 - **JSON comme format d'échange** : versionné, lisible, réimportable.
-- **Rendu fidèle** : chaque fiche a un gabarit d'impression qui reproduit la mise en page officielle.
+- **Rendu fidèle** : chaque fiche a un gabarit PDF, dessiné avec jsPDF, qui reproduit la mise en page officielle.
 - **Indépendant de l'appareil** : iPad ou Android, navigateur récent (Safari, Chrome).
-- **Vanilla JS** : pas de framework, pour garder un fichier léger et durable.
+- **Vanilla JS** : pas de framework, pour garder un fichier léger et durable. Seule bibliothèque : jsPDF (licence MIT), intégrée au fichier, sans réseau.
 
 ## 4. Structure du dépôt
 
@@ -45,27 +45,31 @@ strata-lotpack/
 │   └── forms/               ← scans PDF des fiches officielles (référence)
 ├── src/
 │   ├── index.html           ← squelette de l'app
+│   ├── app.js               ← routeur et écrans (Jobs, Shift, Settings)
 │   ├── styles/
-│   │   ├── app.css          ← interface tablette
-│   │   └── print.css        ← rendu des fiches officielles
+│   │   └── app.css          ← interface tablette
 │   ├── core/
 │   │   ├── db.js            ← IndexedDB (CRUD, autosave)
 │   │   ├── schema.js        ← modèle + version du schéma
 │   │   ├── io.js            ← export / import JSON, fusion
 │   │   ├── rules.js         ← calculs et contrôles
+│   │   ├── pdf.js           ← génération du PDF (jsPDF)
 │   │   └── mail.js          ← étape Finish & send
-│   ├── forms/               ← un module par fiche (saisie + gabarit print)
+│   ├── forms/               ← un module par fiche (saisie + gabarit PDF)
 │   │   ├── approval.js      ← MSF28-6
 │   │   ├── diagram.js       ← MSF28-7
 │   │   ├── traceability.js  ← MSF28-10
 │   │   ├── dip.js           ← MSF28-9
 │   │   ├── survey.js        ← MSF28-12
 │   │   └── quantities.js    ← MSF28-11
+│   ├── vendor/
+│   │   └── jspdf.umd.min.js ← jsPDF (licence MIT), intégré au build
 │   └── ui/
 │       ├── canvas.js        ← dessin et signatures (doigt / stylet)
 │       └── components.js
 ├── build/
 │   └── build.js             ← assemble src/ en un seul HTML
+├── test/                    ← tests automatisés (Playwright)
 ├── dist/
 │   └── strata-lotpack.html
 └── README.md
@@ -140,7 +144,7 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 ## 8. Sorties et envoi
 
 1. **Finish & send** affiche un récapitulatif de ce qui est rempli ou vide (sans bloquer).
-2. Génération du PDF via `print.css` : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires portent le code MSF28-7, alors que le papier indique à tort MSF28-12). Ordre des fiches dans le PDF : MSF28-6 Approval, MSF28-7 Site Diagram (+ pages de dessin), MSF28-10 Traceability (+ pages de suite), MSF28-9 Dip Record, MSF28-12 Survey Record, MSF28-11 Quantity & Placement ; une fiche optionnelle non ajoutée est simplement absente.
+2. Génération du PDF avec jsPDF (`core/pdf.js`), sans passer par la boîte d'impression, pour que le fichier puisse être joint automatiquement au brouillon : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires portent le code MSF28-7, alors que le papier indique à tort MSF28-12). Ordre des fiches dans le PDF : MSF28-6 Approval, MSF28-7 Site Diagram (+ pages de dessin), MSF28-10 Traceability (+ pages de suite), MSF28-9 Dip Record, MSF28-12 Survey Record, MSF28-11 Quantity & Placement ; une fiche optionnelle non ajoutée est simplement absente.
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
 5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du lotpack>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
@@ -173,7 +177,7 @@ Regards,
 | Étape | Contenu | Critère de fin |
 | --- | --- | --- |
 | 1 | Squelette, build, IndexedDB, Jobs / Shifts | Un job créé est retrouvé après rechargement |
-| 2 | Approval to Proceed + signatures | Fiche remplie et signée, aperçu print fidèle |
+| 2 | Approval to Proceed + signatures | Fiche remplie et signée, aperçu PDF fidèle |
 | 3 | Asphalt Traceability | Lignes camions, cumul, alertes 2 h |
 | 4 | Site Diagram | Croquis et légendes sauvegardés, ajout de pages de dessin |
 | 5 | Dip Record + Survey Record | Ajout à la demande, 3 blocs, relevés, contrôle des limites |
@@ -199,4 +203,4 @@ Regards,
 
 1. Aucune question ouverte.
 
-Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8).
+Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires ; Dip Record et Survey Record optionnels, ajoutés à la demande ; ordre du PDF : 6, 7, 10, 9, 12, 11 ; mail générique en anglais (modèle section 8) ; PDF généré par jsPDF et joint automatiquement ; développement étape par étape, avec validation de PL entre chaque étape.

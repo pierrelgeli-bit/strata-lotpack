@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Strata Lotpack</title>
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">Strata <span>Lotpack</span></a>
+    <nav class="topnav">
+      <a href="#/" data-nav="jobs">Jobs</a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+    </nav>
+    <span class="save-state" id="save-state" aria-live="polite"></span>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Theme"></button>
+  </header>
+  <main id="app" class="app"></main>
+
+  <script src="core/schema.js"></script>
+  <script src="core/db.js"></script>
+  <script src="ui/components.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

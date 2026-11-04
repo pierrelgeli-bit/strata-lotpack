@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Strata Lotpack</title>
+  <style>/* styles/app.css */
+/* Strata Lotpack — tablet / phone UI */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #111418;
+  --muted: #59606b;
+  --border: #c9ced6;
+  --accent: #c8102e;
+  --accent-text: #ffffff;
+  --focus: #1a5fd0;
+  --danger: #b00020;
+  --ok: #1e7b34;
+  --radius: 10px;
+  --tap: 48px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101317;
+    --surface: #1a1f26;
+    --text: #eef1f5;
+    --muted: #a3abb7;
+    --border: #39414d;
+    --accent: #ff4d5e;
+    --accent-text: #101317;
+    --focus: #7fb0ff;
+    --danger: #ff6b7a;
+    --ok: #5fd27c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101317;
+  --surface: #1a1f26;
+  --text: #eef1f5;
+  --muted: #a3abb7;
+  --border: #39414d;
+  --accent: #ff4d5e;
+  --accent-text: #101317;
+  --focus: #7fb0ff;
+  --danger: #ff6b7a;
+  --ok: #5fd27c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 16px; min-height: 56px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; text-decoration: none; font-size: 18px; white-space: nowrap; }
+.brand span { color: var(--accent); }
+.topnav { display: flex; gap: 4px; margin-left: 8px; }
+.topnav a {
+  text-decoration: none; padding: 10px 12px; border-radius: 8px;
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.topnav a.active { background: var(--bg); font-weight: 600; }
+.save-state { margin-left: auto; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.theme-btn {
+  min-width: 44px; min-height: 44px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: 14px; padding: 0 10px; cursor: pointer;
+}
+
+/* Layout */
+.app { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.crumbs { color: var(--muted); font-size: 15px; margin: 4px 0 12px; }
+.crumbs a { text-decoration: none; color: var(--muted); }
+.crumbs a:hover { text-decoration: underline; }
+h1 { font-size: 24px; margin: 0 0 12px; }
+h2 { font-size: 19px; margin: 0 0 12px; }
+.row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.row-head h1, .row-head h2 { margin: 0; }
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+}
+.muted { color: var(--muted); }
+.empty { color: var(--muted); padding: 24px 8px; text-align: center; }
+
+/* Buttons */
+.btn {
+  min-height: var(--tap); padding: 0 18px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* Forms */
+.grid { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 14px; color: var(--muted); font-weight: 600; }
+.field input, .field select, .field textarea {
+  min-height: var(--tap); padding: 8px 12px; font: inherit;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); width: 100%;
+}
+.choice { display: flex; gap: 8px; flex-wrap: wrap; }
+.choice label {
+  display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap);
+  padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+}
+.choice input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* Lists of cards */
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.card {
+  display: block; text-decoration: none; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  min-height: var(--tap);
+}
+.card:hover { border-color: var(--text); }
+.card .title { font-weight: 700; font-size: 18px; }
+.card .meta { color: var(--muted); font-size: 15px; margin-top: 4px; }
+
+/* Sheet tabs */
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; }
+.tab {
+  flex: 0 0 auto; min-height: var(--tap); padding: 0 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font: inherit; cursor: pointer; display: inline-flex; flex-direction: column; justify-content: center;
+}
+.tab small { color: var(--muted); font-size: 12px; }
+.tab.active { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); font-weight: 600; }
+
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.banner { padding: 12px 16px; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); margin-bottom: 16px; }
+
+/* Phone: one column */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .topbar { flex-wrap: wrap; padding: 8px 16px; }
+  .topnav { margin-left: 0; order: 3; width: 100%; }
+  .save-state { margin-left: auto; }
+  .grid, .cards { grid-template-columns: 1fr; }
+  .app { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">Strata <span>Lotpack</span></a>
+    <nav class="topnav">
+      <a href="#/" data-nav="jobs">Jobs</a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+    </nav>
+    <span class="save-state" id="save-state" aria-live="polite"></span>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Theme"></button>
+  </header>
+  <main id="app" class="app"></main>
+
+  <script>/* core/schema.js */
+/* Data model, schema version and migrations */
+(function (SL) {
+  'use strict';
+
+  const SCHEMA_VERSION = 1;
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+
+  const nowIso = () => new Date().toISOString();
+
+  // Local calendar date as YYYY-MM-DD (device time zone)
+  function todayIso() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  // YYYY-MM-DD -> DD/MM/YYYY
+  function formatDate(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function defaultSettings() {
+    return { theme: 'system', alwaysCc: '', defaultCompletedBy: '' };
+  }
+
+  function newJob() {
+    const t = nowIso();
+    return {
+      id: uuid(),
+      client: '', projectTitle: '', jobNumber: '', suburb: '',
+      supplyingPlant: '', haulageKm: null,
+      shifts: [],
+      createdAt: t, updatedAt: t,
+    };
+  }
+
+  // Common fields (product, completed by) carry over from the job's latest shift
+  function newShift(job, settings) {
+    const t = nowIso();
+    const prev = job && job.shifts.length ? job.shifts[job.shifts.length - 1] : null;
+    return {
+      id: uuid(),
+      date: todayIso(),
+      product: prev ? prev.product : '',
+      nominatedThickness: prev ? prev.nominatedThickness : null,
+      workType: [], layer: [],
+      weather: '',
+      approval: {},
+      traceability: { loads: [], envReadings: [] },
+      diagram: { pages: [] },
+      dipRecords: [],
+      surveys: [],
+      quantities: {},
+      completedBy: (prev && prev.completedBy) || (settings && settings.defaultCompletedBy) || '',
+      sendLog: [],
+      status: 'draft',
+      createdAt: t, updatedAt: t,
+    };
+  }
+
+  // Each step i -> i+1 lives here; none yet (schema v1)
+  const MIGRATIONS = {};
+
+  function migrateJob(job) {
+    let v = job.schemaVersion || 1;
+    while (v < SCHEMA_VERSION) {
+      const step = MIGRATIONS[v];
+      if (!step) throw new Error(`No migration from schema ${v}`);
+      job = step(job);
+      v += 1;
+    }
+    job.schemaVersion = SCHEMA_VERSION;
+    return job;
+  }
+
+  SL.schema = {
+    SCHEMA_VERSION, uuid, nowIso, todayIso, formatDate,
+    defaultSettings, newJob, newShift, migrateJob,
+  };
+})(window.SL = window.SL || {});
+</script>
+  <script>/* core/db.js */
+/* IndexedDB storage: CRUD + debounced autosave */
+(function (SL) {
+  'use strict';
+
+  const DB_NAME = 'strata-lotpack';
+  const DB_VERSION = 1;
+  let dbPromise = null;
+
+  function open() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error('IndexedDB is not available in this browser.')); return; }
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('jobs')) db.createObjectStore('jobs', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('Database blocked by another open tab.'));
+    });
+    return dbPromise;
+  }
+
+  function tx(store, mode, fn) {
+    return open().then((db) => new Promise((resolve, reject) => {
+      const t = db.transaction(store, mode);
+      const s = t.objectStore(store);
+      let result;
+      const r = fn(s);
+      if (r) r.onsuccess = () => { result = r.result; };
+      t.oncomplete = () => resolve(result);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error || new Error('Transaction aborted'));
+    }));
+  }
+
+  const getAllJobs = () => tx('jobs', 'readonly', (s) => s.getAll())
+    .then((jobs) => (jobs || []).map(SL.schema.migrateJob));
+  const getJob = (id) => tx('jobs', 'readonly', (s) => s.get(id))
+    .then((j) => (j ? SL.schema.migrateJob(j) : null));
+  const putJob = (job) => tx('jobs', 'readwrite', (s) => s.put(job));
+  const deleteJob = (id) => tx('jobs', 'readwrite', (s) => s.delete(id));
+  const getMeta = (key) => tx('meta', 'readonly', (s) => s.get(key)).then((r) => (r ? r.value : undefined));
+  const putMeta = (key, value) => tx('meta', 'readwrite', (s) => s.put({ key, value }));
+
+  // ---- Autosave -------------------------------------------------------
+  const pending = new Map(); // id -> job
+  let timer = null;
+  const listeners = new Set();
+  const emit = (state) => listeners.forEach((fn) => fn(state));
+
+  function flush() {
+    clearTimeout(timer); timer = null;
+    if (!pending.size) return Promise.resolve();
+    const jobs = Array.from(pending.values());
+    pending.clear();
+    return Promise.all(jobs.map(putJob))
+      .then(() => emit('saved'))
+      .catch((e) => { console.error(e); emit('error'); });
+  }
+
+  // Mark a job changed; written to IndexedDB after a short pause
+  function touch(job, shift) {
+    const t = SL.schema.nowIso();
+    job.updatedAt = t;
+    if (shift) shift.updatedAt = t;
+    pending.set(job.id, job);
+    emit('saving');
+    clearTimeout(timer);
+    timer = setTimeout(flush, 250);
+  }
+
+  // Settings / contacts: written at once, shown in the save indicator
+  function saveMeta(key, value) {
+    emit('saving');
+    return putMeta(key, value)
+      .then(() => emit('saved'))
+      .catch((e) => { console.error(e); emit('error'); });
+  }
+
+  // Do not lose the last keystrokes when the tab is hidden or closed
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  window.addEventListener('pagehide', flush);
+
+  SL.db = {
+    open, getAllJobs, getJob, putJob, deleteJob, getMeta, putMeta, saveMeta,
+    touch, flush, onSaveState: (fn) => listeners.add(fn),
+  };
+})(window.SL = window.SL || {});
+</script>
+  <script>/* ui/components.js */
+/* Small DOM helpers and form components */
+(function (SL) {
+  'use strict';
+
+  // h('div', {class: 'x', onclick: fn}, child1, 'text', [child2, child3])
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (k === 'class') el.className = v;
+      else if (k === 'dataset') Object.assign(el.dataset, v);
+      else if (k in el && typeof v !== 'string') el[k] = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    const add = (c) => {
+      if (c === null || c === undefined || c === false) return;
+      if (Array.isArray(c)) c.forEach(add);
+      else el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    };
+    children.forEach(add);
+    return el;
+  }
+
+  let fieldSeq = 0;
+
+  // Text / number / date input bound to obj[key]; onChange runs after each edit
+  function field(label, obj, key, onChange, opts = {}) {
+    const id = `f${++fieldSeq}`;
+    const type = opts.type || 'text';
+    const value = obj[key];
+    const input = h('input', {
+      id, type: type === 'number' ? 'text' : type,
+      inputmode: type === 'number' ? 'decimal' : opts.inputmode,
+      value: value === null || value === undefined ? '' : String(value),
+      placeholder: opts.placeholder,
+      autocomplete: 'off',
+      dataset: { key },
+    });
+    input.addEventListener('input', () => {
+      if (type === 'number') {
+        const raw = input.value.trim().replace(',', '.');
+        const n = raw === '' ? null : Number(raw);
+        obj[key] = raw === '' ? null : (Number.isFinite(n) ? n : raw);
+      } else {
+        obj[key] = input.value;
+      }
+      onChange();
+    });
+    return h('div', { class: 'field' }, h('label', { for: id }, label), input);
+  }
+
+  function button(label, onclick, cls = '') {
+    return h('button', { type: 'button', class: `btn ${cls}`.trim(), onclick }, label);
+  }
+
+  SL.ui = { h, field, button };
+})(window.SL = window.SL || {});
+</script>
+  <script>/* app.js */
+/* Entry point: router and screens (Jobs, Job, Shift, Settings) */
+(function (SL) {
+  'use strict';
+
+  const { h, field, button } = SL.ui;
+  const { formatDate } = SL.schema;
+  const app = document.getElementById('app');
+
+  const state = { settings: SL.schema.defaultSettings(), shiftTab: {} };
+
+  // Base sheets of every shift, in PDF order. Optional sheets come in later steps.
+  const SHEETS = [
+    { key: 'approval', code: 'MSF28-6', name: 'Approval to Proceed' },
+    { key: 'diagram', code: 'MSF28-7', name: 'Site Diagram' },
+    { key: 'traceability', code: 'MSF28-10', name: 'Asphalt Traceability' },
+    { key: 'quantities', code: 'MSF28-11', name: 'Quantity & Placement' },
+  ];
+
+  // ---- Theme -----------------------------------------------------------
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'Auto', light: 'Day', dark: 'Night' };
+
+  function applyTheme() {
+    const t = state.settings.theme || 'system';
+    if (t === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+    const btn = document.getElementById('theme-btn');
+    btn.textContent = THEME_LABEL[t];
+    btn.title = `Theme: ${THEME_LABEL[t]} (tap to change)`;
+  }
+
+  function saveSettings() {
+    return SL.db.saveMeta('settings', state.settings);
+  }
+
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    const i = THEMES.indexOf(state.settings.theme || 'system');
+    state.settings.theme = THEMES[(i + 1) % THEMES.length];
+    applyTheme();
+    saveSettings();
+    if (location.hash === '#/settings') render();
+  });
+
+  // ---- Save indicator --------------------------------------------------
+  const saveEl = document.getElementById('save-state');
+  SL.db.onSaveState((s) => {
+    saveEl.textContent = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : 'Not saved!';
+    saveEl.style.color = s === 'error' ? 'var(--danger)' : '';
+  });
+
+  // ---- Helpers ---------------------------------------------------------
+  const jobTitle = (job) => job.projectTitle || job.jobNumber || 'Untitled job';
+  const crumbs = (...parts) => h('div', { class: 'crumbs' }, parts.map((p, i) => [i ? ' / ' : '', p]));
+  const go = (hash) => { location.hash = hash; };
+
+  function notFound(msg) {
+    app.replaceChildren(h('p', { class: 'empty' }, msg), h('p', { class: 'empty' }, h('a', { href: '#/' }, 'Back to jobs')));
+  }
+
+  // ---- Screens ---------------------------------------------------------
+  async function renderJobs() {
+    const jobs = await SL.db.getAllJobs();
+    jobs.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+
+    const newJob = async () => {
+      const job = SL.schema.newJob();
+      await SL.db.putJob(job);
+      go(`#/job/${job.id}`);
+    };
+
+    app.replaceChildren(
+      h('div', { class: 'row-head' }, h('h1', {}, 'Jobs'), button('New job', newJob, 'primary')),
+      jobs.length
+        ? h('div', { class: 'cards' }, jobs.map((job) => h('a', { class: 'card', href: `#/job/${job.id}` },
+          h('div', { class: 'title' }, jobTitle(job)),
+          h('div', { class: 'meta' }, [job.jobNumber, job.client, job.suburb].filter(Boolean).join(' · ') || 'No details yet'),
+          h('div', { class: 'meta' }, `${job.shifts.length} shift${job.shifts.length === 1 ? '' : 's'}`))))
+        : h('p', { class: 'empty' }, 'No jobs yet. Tap “New job” to start.'),
+    );
+  }
+
+  async function renderJob(jobId) {
+    const job = await SL.db.getJob(jobId);
+    if (!job) return notFound('This job no longer exists.');
+    const save = () => { SL.db.touch(job); titleEl.textContent = jobTitle(job); };
+    const titleEl = h('h1', {}, jobTitle(job));
+
+    const newShift = async () => {
+      const shift = SL.schema.newShift(job, state.settings);
+      job.shifts.push(shift);
+      job.updatedAt = shift.createdAt;
+      await SL.db.putJob(job);
+      go(`#/job/${job.id}/shift/${shift.id}`);
+    };
+
+    const delJob = async () => {
+      if (!confirm(`Delete job “${jobTitle(job)}” and its ${job.shifts.length} shift(s)? This cannot be undone.`)) return;
+      await SL.db.flush();
+      await SL.db.deleteJob(job.id);
+      go('#/');
+    };
+
+    const shifts = job.shifts.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    app.replaceChildren(
+      crumbs(h('a', { href: '#/' }, 'Jobs'), jobTitle(job)),
+      titleEl,
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Job details'),
+        h('div', { class: 'grid' },
+          field('Client', job, 'client', save),
+          field('Project Title', job, 'projectTitle', save),
+          field('Job Number', job, 'jobNumber', save),
+          field('Suburb', job, 'suburb', save),
+          field('Supplying Plant', job, 'supplyingPlant', save),
+          field('Haulage (km)', job, 'haulageKm', save, { type: 'number' }))),
+      h('section', { class: 'panel' },
+        h('div', { class: 'row-head' }, h('h2', {}, 'Shifts'), button('New shift', newShift, 'primary')),
+        shifts.length
+          ? h('div', { class: 'cards' }, shifts.map((s) => h('a', { class: 'card', href: `#/job/${job.id}/shift/${s.id}` },
+            h('div', { class: 'title' }, formatDate(s.date) || 'No date'),
+            h('div', { class: 'meta' }, [s.product, s.completedBy].filter(Boolean).join(' · ') || 'No details yet'),
+            h('div', { class: 'meta' }, s.status === 'sent' ? 'Sent' : 'Draft'))))
+          : h('p', { class: 'empty' }, 'No shifts yet. One shift = one lotpack.')),
+      h('div', { class: 'actions' }, button('Delete job', delJob, 'danger')),
+    );
+  }
+
+  async function renderShift(jobId, shiftId) {
+    const job = await SL.db.getJob(jobId);
+    const shift = job && job.shifts.find((s) => s.id === shiftId);
+    if (!shift) return notFound('This shift no longer exists.');
+    const save = () => { SL.db.touch(job, shift); dateCrumb.textContent = formatDate(shift.date) || 'No date'; };
+    const dateCrumb = h('span', {}, formatDate(shift.date) || 'No date');
+
+    const tab = state.shiftTab[shift.id] || SHEETS[0].key;
+    const sheet = SHEETS.find((s) => s.key === tab) || SHEETS[0];
+    const tabs = h('div', { class: 'tabs', role: 'tablist' }, SHEETS.map((s) => h('button', {
+      type: 'button', role: 'tab', class: `tab${s.key === sheet.key ? ' active' : ''}`,
+      'aria-selected': s.key === sheet.key ? 'true' : 'false',
+      onclick: () => { state.shiftTab[shift.id] = s.key; renderShift(jobId, shiftId); },
+    }, s.name, h('small', {}, s.code))));
+
+    const delShift = async () => {
+      if (!confirm(`Delete the shift of ${formatDate(shift.date)}? This cannot be undone.`)) return;
+      job.shifts = job.shifts.filter((s) => s.id !== shift.id);
+      SL.db.touch(job);
+      await SL.db.flush();
+      go(`#/job/${job.id}`);
+    };
+
+    app.replaceChildren(
+      crumbs(h('a', { href: '#/' }, 'Jobs'), h('a', { href: `#/job/${job.id}` }, jobTitle(job)), dateCrumb),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Shift'),
+        h('div', { class: 'grid' },
+          field('Date', shift, 'date', save, { type: 'date' }),
+          field('Product', shift, 'product', save),
+          field('Nominated thickness (mm)', shift, 'nominatedThickness', save, { type: 'number' }),
+          field('Completed by', shift, 'completedBy', save))),
+      tabs,
+      h('section', { class: 'panel', role: 'tabpanel' },
+        h('h2', {}, `${sheet.name} — ${sheet.code}`),
+        h('p', { class: 'muted' }, 'This sheet is not built yet.')),
+      h('div', { class: 'actions' }, button('Delete shift', delShift, 'danger')),
+    );
+  }
+
+  function renderSettings() {
+    const s = state.settings;
+    const themeChoice = h('div', { class: 'choice', role: 'radiogroup' }, THEMES.map((t) => h('label', {},
+      h('input', {
+        type: 'radio', name: 'theme', value: t, checked: (s.theme || 'system') === t,
+        onchange: () => { s.theme = t; applyTheme(); saveSettings(); },
+      }), THEME_LABEL[t] + (t === 'system' ? ' (device setting)' : ''))));
+
+    app.replaceChildren(
+      h('h1', {}, 'Settings'),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Display'),
+        h('div', { class: 'field' }, h('label', {}, 'Theme'), themeChoice)),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'Defaults'),
+        h('div', { class: 'grid' }, field('Default “Completed by”', s, 'defaultCompletedBy', saveSettings))),
+    );
+  }
+
+  // ---- Router ----------------------------------------------------------
+  async function render() {
+    await SL.db.flush();
+    const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+    document.querySelectorAll('[data-nav]').forEach((a) => {
+      a.classList.toggle('active', (parts[0] === 'settings') === (a.dataset.nav === 'settings'));
+    });
+    try {
+      if (parts[0] === 'settings') renderSettings();
+      else if (parts[0] === 'job' && parts[2] === 'shift') await renderShift(parts[1], parts[3]);
+      else if (parts[0] === 'job') await renderJob(parts[1]);
+      else await renderJobs();
+      window.scrollTo(0, 0);
+    } catch (e) {
+      console.error(e);
+      app.replaceChildren(h('div', { class: 'banner' }, `Something went wrong: ${e.message}`));
+    }
+  }
+
+  async function start() {
+    try {
+      await SL.db.open();
+      const saved = await SL.db.getMeta('settings');
+      state.settings = Object.assign(SL.schema.defaultSettings(), saved || {});
+    } catch (e) {
+      app.replaceChildren(h('div', { class: 'banner' }, `Local storage unavailable: ${e.message} Data cannot be saved on this device.`));
+      return;
+    }
+    applyTheme();
+    window.addEventListener('hashchange', render);
+    await render();
+    document.documentElement.dataset.ready = '1';
+  }
+
+  start();
+})(window.SL = window.SL || {});
+</script>
+</body>
+</html>
