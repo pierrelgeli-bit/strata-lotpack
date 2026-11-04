@@ -17,17 +17,27 @@ Assemble `src/` en un seul fichier `dist/strata-lotpack.html`.
 ## Tests
 
 ```bash
-node build/build.js && node test/step1.test.js
+node build/build.js && node test/step1.test.js && node test/step2.test.js
 ```
 
-Les tests utilisent Playwright (Chromium).
+Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Le PDF généré par le test de l'étape 2 est écrit dans `test/out/`.
+
+## Gabarit PDF
+
+Le PDF officiel (`docs/forms/Lot_Package_PL.pdf`) sert de fond aux fiches générées. Ses numéros de page papier en sont retirés par :
+
+```bash
+python3 tools/make-template.py
+```
+
+qui écrit `src/assets/lotpack-template.pdf` (nécessite PyMuPDF). À relancer seulement si le PDF officiel change ; le résultat est commité.
 
 ## Avancement
 
 | Étape | Contenu | État |
 | --- | --- | --- |
 | 1 | Squelette, build, IndexedDB, Jobs / Shifts | Fait |
-| 2 | Approval to Proceed + signatures | À faire |
+| 2 | Approval to Proceed + signatures | Fait |
 | 3 | Asphalt Traceability | À faire |
 | 4 | Site Diagram | À faire |
 | 5 | Dip Record + Survey Record | À faire |

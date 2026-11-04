@@ -42,9 +42,9 @@ async function openApp(profile, viewport) {
 
   // Create a shift
   await page.getByRole('button', { name: 'New shift' }).click();
-  await page.getByLabel('Product').fill('AC14');
-  await page.getByLabel('Completed by').fill('PL');
-  await page.getByLabel('Date').fill('2026-11-04');
+  await page.locator('.shift-details').getByLabel('Product').fill('AC14');
+  await page.locator('.shift-details').getByLabel('Completed by').fill('PL');
+  await page.locator('.shift-details').getByLabel('Date').fill('2026-11-04');
   await page.getByText('Saved').waitFor();
   check(await page.locator('.tab').count() === 4, '4 base sheet tabs in a shift');
   if (shots) await page.screenshot({ path: path.join(shots, 'step1-shift-tablet.png') });
@@ -52,8 +52,8 @@ async function openApp(profile, viewport) {
   // Second shift inherits product and completed by
   await page.getByRole('link', { name: 'Pacific Hwy resurfacing' }).click();
   await page.getByRole('button', { name: 'New shift' }).click();
-  check(await page.getByLabel('Product').inputValue() === 'AC14', 'New shift carries over product');
-  check(await page.getByLabel('Completed by').inputValue() === 'PL', 'New shift carries over “Completed by”');
+  check(await page.locator('.shift-details').getByLabel('Product').inputValue() === 'AC14', 'New shift carries over product');
+  check(await page.locator('.shift-details').getByLabel('Completed by').inputValue() === 'PL', 'New shift carries over “Completed by”');
 
   // Theme switch persists
   await page.getByRole('link', { name: 'Settings' }).click();

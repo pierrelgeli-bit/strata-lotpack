@@ -24,9 +24,22 @@ html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, rel) => {
   return `<style>/* ${rel} */\n${read(rel).replace(/<\/style/gi, '<\\/style')}</style>`;
 });
 
+// Official lotpack, cleaned by tools/make-template.py, used as the PDF background
+const templatePath = path.join(src, 'assets', 'lotpack-template.pdf');
+const templateB64 = fs.readFileSync(templatePath).toString('base64');
+
 html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, rel) => {
   used.push(rel);
-  return `<script>/* ${rel} */\n${read(rel).replace(/<\/script/gi, '<\\/script')}</script>`;
+  let js = read(rel);
+  if (js.includes("'__TEMPLATE_PDF_BASE64__'")) {
+    js = js.replace("'__TEMPLATE_PDF_BASE64__'", `'${templateB64}'`);
+    used.push('assets/lotpack-template.pdf (embedded)');
+  }
+  // Keep third-party licences next to their code
+  const lic = rel.replace(/\.min\.js$|\.js$/, '.LICENSE.md');
+  const header = rel.startsWith('vendor/') && fs.existsSync(path.join(src, lic))
+    ? `/*!\n${read(lic).replace(/\*\//g, '* /')}\n*/\n` : '';
+  return `<script>/* ${rel} */\n${header}${js.replace(/<\/script/gi, '<\\/script')}</script>`;
 });
 
 if (/<(script|link)[^>]+(src|href)="(?!#)/.test(html)) {

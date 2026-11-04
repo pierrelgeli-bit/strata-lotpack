@@ -54,5 +54,63 @@
     return h('button', { type: 'button', class: `btn ${cls}`.trim(), onclick }, label);
   }
 
-  SL.ui = { h, field, button };
+  // Header field shared by all sheets: shows the job / shift value, a local edit
+  // is kept on this sheet only (sheet.header[key]); clearing it returns to the common value.
+  function headerField(label, sheet, key, common, onChange, opts = {}) {
+    sheet.header = sheet.header || {};
+    const id = `f${++fieldSeq}`;
+    const has = () => sheet.header[key] !== undefined && sheet.header[key] !== null && sheet.header[key] !== '';
+    const str = (v) => (v === null || v === undefined ? '' : String(v));
+    const input = h('input', {
+      id, type: opts.type || 'text', inputmode: opts.inputmode, autocomplete: 'off',
+      value: has() ? str(sheet.header[key]) : str(common), dataset: { key },
+    });
+    const tag = h('span', { class: 'local-tag' }, 'edited on this sheet');
+    const sync = () => { tag.hidden = !has(); };
+    input.addEventListener('input', () => {
+      const v = input.value;
+      if (v === '' || v === str(common)) delete sheet.header[key];
+      else sheet.header[key] = opts.number ? Number(v.replace(',', '.')) || v : v;
+      sync();
+      onChange();
+    });
+    sync();
+    return h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
+  }
+
+  // Large checkbox chip bound to a boolean obj[key]
+  function check(label, obj, key, onChange, cls = '') {
+    const input = h('input', { type: 'checkbox', checked: !!obj[key] });
+    input.addEventListener('change', () => { obj[key] = input.checked; onChange(); });
+    return h('label', { class: `chk ${cls}`.trim() }, input, h('span', {}, label));
+  }
+
+  // Checkbox chip that adds / removes `value` in the array obj[key]
+  function multi(label, obj, key, value, onChange) {
+    obj[key] = obj[key] || [];
+    const input = h('input', { type: 'checkbox', checked: obj[key].includes(value) });
+    input.addEventListener('change', () => {
+      const set = new Set(obj[key]);
+      if (input.checked) set.add(value); else set.delete(value);
+      obj[key] = Array.from(set);
+      onChange();
+    });
+    return h('label', { class: 'chk' }, input, h('span', {}, label));
+  }
+
+  function textarea(label, obj, key, onChange, rows = 4) {
+    const id = `f${++fieldSeq}`;
+    const ta = h('textarea', { id, rows, value: obj[key] || '' });
+    ta.addEventListener('input', () => { obj[key] = ta.value; onChange(); });
+    return h('div', { class: 'field' }, h('label', { for: id }, label), ta);
+  }
+
+  // Local date-time "YYYY-MM-DDTHH:MM" (value of <input type="datetime-local">)
+  function nowLocal() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  SL.ui = { h, field, button, headerField, check, multi, textarea, nowLocal };
 })(window.SL = window.SL || {});

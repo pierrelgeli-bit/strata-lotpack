@@ -135,11 +135,38 @@
 
     const tab = state.shiftTab[shift.id] || SHEETS[0].key;
     const sheet = SHEETS.find((s) => s.key === tab) || SHEETS[0];
-    const tabs = h('div', { class: 'tabs', role: 'tablist' }, SHEETS.map((s) => h('button', {
-      type: 'button', role: 'tab', class: `tab${s.key === sheet.key ? ' active' : ''}`,
-      'aria-selected': s.key === sheet.key ? 'true' : 'false',
-      onclick: () => { state.shiftTab[shift.id] = s.key; renderShift(jobId, shiftId); },
-    }, s.name, h('small', {}, s.code))));
+    const form = SL.forms && SL.forms[sheet.key];
+
+    // Completeness dot on each tab, refreshed as the sheet is filled
+    const STATUS_LABEL = { empty: 'Empty', progress: 'In progress', complete: 'Complete' };
+    const statusOf = (s) => (SL.forms && SL.forms[s.key] ? SL.forms[s.key].status(job, shift) : 'empty');
+    const tabEls = SHEETS.map((s) => {
+      const dot = h('i', { class: 'dot' });
+      const el = h('button', {
+        type: 'button', role: 'tab', class: `tab${s.key === sheet.key ? ' active' : ''}`,
+        'aria-selected': s.key === sheet.key ? 'true' : 'false',
+        onclick: () => { state.shiftTab[shift.id] = s.key; renderShift(jobId, shiftId); },
+      }, h('span', {}, dot, s.name), h('small', {}, s.code));
+      el.refresh = () => { const st = statusOf(s); dot.className = `dot st-${st}`; dot.title = STATUS_LABEL[st]; };
+      el.refresh();
+      return el;
+    });
+    const tabs = h('div', { class: 'tabs', role: 'tablist' }, tabEls);
+
+    // Non-blocking warnings (e.g. approval not signed)
+    const warnEl = h('div', { class: 'warn', role: 'status' });
+    const refreshWarnings = () => {
+      const msgs = Object.values(SL.forms || {}).map((f) => (f.warning ? f.warning(job, shift) : '')).filter(Boolean);
+      warnEl.replaceChildren(...msgs.map((m) => h('div', {}, '⚠ ', m)));
+      warnEl.hidden = !msgs.length;
+    };
+    refreshWarnings();
+
+    const saveSheet = () => {
+      SL.db.touch(job, shift);
+      tabEls.forEach((t) => t.refresh());
+      refreshWarnings();
+    };
 
     const delShift = async () => {
       if (!confirm(`Delete the shift of ${formatDate(shift.date)}? This cannot be undone.`)) return;
@@ -151,19 +178,55 @@
 
     app.replaceChildren(
       crumbs(h('a', { href: '#/' }, 'Jobs'), h('a', { href: `#/job/${job.id}` }, jobTitle(job)), dateCrumb),
-      h('section', { class: 'panel' },
+      h('section', { class: 'panel shift-details' },
         h('h2', {}, 'Shift'),
         h('div', { class: 'grid' },
           field('Date', shift, 'date', save, { type: 'date' }),
           field('Product', shift, 'product', save),
           field('Nominated thickness (mm)', shift, 'nominatedThickness', save, { type: 'number' }),
           field('Completed by', shift, 'completedBy', save))),
+      warnEl,
       tabs,
       h('section', { class: 'panel', role: 'tabpanel' },
-        h('h2', {}, `${sheet.name} — ${sheet.code}`),
-        h('p', { class: 'muted' }, 'This sheet is not built yet.')),
-      h('div', { class: 'actions' }, button('Delete shift', delShift, 'danger')),
+        h('div', { class: 'row-head' },
+          h('h2', {}, `${sheet.name} — ${sheet.code}`),
+          form ? button('Preview PDF', () => previewPdf(job, shift)) : null),
+        form ? form.render(job, shift, saveSheet) : h('p', { class: 'muted' }, 'This sheet is not built yet.')),
+      h('div', { class: 'actions' },
+        button('Preview PDF', () => previewPdf(job, shift), 'primary'),
+        button('Delete shift', delShift, 'danger')),
     );
+  }
+
+  // ---- PDF preview -----------------------------------------------------
+  let previewUrl = null;
+  async function previewPdf(job, shift) {
+    await SL.db.flush();
+    const close = () => {
+      dlg.remove();
+      if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    };
+    const body = h('div', { class: 'modal-body' }, h('p', { class: 'empty' }, 'Building PDF…'));
+    const dlg = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'PDF preview' },
+      h('div', { class: 'modal-card' },
+        h('div', { class: 'row-head' }, h('h2', {}, 'PDF preview'), button('Close', close)),
+        body));
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+    document.body.appendChild(dlg);
+    try {
+      const bytes = await SL.pdf.build(job, shift);
+      previewUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const name = SL.pdf.fileName(job, shift);
+      body.replaceChildren(
+        h('div', { class: 'actions' },
+          h('a', { class: 'btn primary', href: previewUrl, target: '_blank', rel: 'noopener' }, 'Open full screen'),
+          h('a', { class: 'btn', href: previewUrl, download: name }, 'Download')),
+        h('iframe', { class: 'pdf-frame', src: previewUrl, title: name }));
+      dlg.dataset.ready = '1';
+    } catch (e) {
+      console.error(e);
+      body.replaceChildren(h('div', { class: 'banner' }, `PDF could not be built: ${e.message}`));
+    }
   }
 
   function renderSettings() {
