@@ -6,6 +6,14 @@ Application terrain de la famille Strata : remplissage sur tablette du lotpack d
 - Fiches officielles : [`docs/forms/`](docs/forms/)
 - Livrable : `dist/strata-lotpack.html`, un seul fichier à ouvrir dans le navigateur, sans serveur ni réseau.
 
+## Utilisation sur tablette / téléphone (fichier local)
+
+1. Copier `dist/strata-lotpack.html` sur l'appareil, toujours au même endroit et sous le même nom.
+2. L'ouvrir dans le navigateur (Chrome sur Android ; sur iPad / iPhone, un navigateur capable d'ouvrir un fichier HTML local).
+3. Les données restent sur l'appareil, liées à l'emplacement du fichier.
+4. Avant de remplacer le fichier par une nouvelle version : Settings → **Export all data (JSON)**. Après : vérifier que les jobs sont toujours là, sinon **Import JSON…**.
+5. En fichier local, « Share to Outlook » est souvent indisponible : utiliser **Email draft (attach manually)** et joindre le PDF + JSON téléchargés.
+
 ## Build
 
 ```bash
