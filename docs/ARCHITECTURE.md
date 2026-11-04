@@ -143,16 +143,16 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 2. Génération du PDF via `print.css` : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires portent le code MSF28-7, alors que le papier indique à tort MSF28-12). Ordre des fiches dans le PDF : MSF28-6 Approval, MSF28-7 Site Diagram (+ pages de dessin), MSF28-10 Traceability (+ pages de suite), MSF28-9 Dip Record, MSF28-12 Survey Record, MSF28-11 Quantity & Placement ; une fiche optionnelle non ajoutée est simplement absente.
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
-5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du jour>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
+5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – <date du lotpack>`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
    - Tablette / téléphone : Web Share API avec fichiers → choix de l'app Outlook → brouillon avec PDF + JSON joints.
    - Si le partage de fichiers n'est pas disponible (ordinateur) : téléchargement du PDF + JSON, puis ouverture d'un brouillon `mailto` prérempli ; les fichiers sont joints à la main (limite technique des liens mailto).
    - Hors connexion : le brouillon est créé quand même ; il part de la boîte d'envoi dès que le réseau revient.
 6. **Historique d'envoi** dans chaque shift et chaque job : expéditeur, destinataires, CC, date et heure de création du brouillon.
 
-**Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet porte la date du jour de création du brouillon, le corps la date du poste. Un champ vide est simplement omis.
+**Modèle de mail** (générique, en anglais). Les dates sont au format JJ/MM/AAAA ; l'objet et le corps portent la date saisie dans le lotpack (date du poste), qui est le plus souvent le jour de l'envoi. Un champ vide est simplement omis.
 
 ```text
-Subject: Lotpack – {today}
+Subject: Lotpack – {shiftDate}
 
 Hi,
 
