@@ -20,10 +20,10 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 | Code | Version | Fiche | Contenu principal |
 | --- | --- | --- | --- |
 | MSF28-6 | V3R2 – 05/09/2024 | Approval to Proceed / Hold Point Release | En-tête, type de travaux, couche, checklist de vérification, commentaires, signatures COLAS et client. Une par poste |
-| MSF28-7 | V2R3 – 13/09/2024 | Site Diagram | Croquis sur grille, légendes (key, mix, layer, depth, area, tonnes), completed by |
+| MSF28-7 | V2R3 – 13/09/2024 | Site Diagram | Croquis sur grille, légendes (key, mix, layer, depth, area, tonnes), completed by. Pages de dessin supplémentaires (grille seule) ajoutables à la demande |
 | MSF28-10 | V1R5 – 13/09/2024 | Asphalt Traceability | En-tête + météo + tack coat, une ligne par camion, relevés vent / température chaussée toutes les 2 h, lot summary, QA checklist. Page de suite de 31 lignes |
-| MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite |
-| MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client |
+| MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite. Optionnelle : ajoutée au lotpack à la demande |
+| MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client. Optionnelle : ajoutée au lotpack à la demande |
 | MSF28-11 | V2R4 – 13/09/2024 | Quantity & Placement Agreement | Pay items, contractor items, quantités, waste, m², variations, signatures |
 
 ## 3. Principes d'architecture
@@ -73,7 +73,7 @@ strata-lotpack/
 
 ## 5. Modèle de données
 
-Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shifts** (un lotpack par poste). Chaque shift est créé avec toutes ses fiches vides, à remplir ensuite. Les champs communs (client, projet, job number, suburb, produit, nom du rédacteur « Completed by ») sont saisis une fois et transmis automatiquement de fiche en fiche ; ils restent modifiables localement. Une seule personne par équipe utilise la tablette.
+Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shifts** (un lotpack par poste). Chaque shift est créé avec ses fiches de base vides (MSF28-6, MSF28-7, MSF28-10, MSF28-11), à remplir ensuite. Le Dip Record (MSF28-9), le Survey Record (MSF28-12) et les pages de dessin supplémentaires du Site Diagram s'ajoutent à la demande. Les champs communs (client, projet, job number, suburb, produit, nom du rédacteur « Completed by ») sont saisis une fois et transmis automatiquement de fiche en fiche ; ils restent modifiables localement. Une seule personne par équipe utilise la tablette.
 
 ```json
 {
@@ -93,7 +93,7 @@ Unité de travail : le **Job** (projet global). Un job contient plusieurs **Shif
       "weather": "",
       "approval": {},
       "traceability": { "loads": [], "envReadings": [] },
-      "diagrams": [],
+      "diagram": { "pages": [] },
       "dipRecords": [],
       "surveys": [],
       "quantities": {},
@@ -109,7 +109,7 @@ Détail des objets :
 
 - **approval** : `checks` (plant, materials, surface, base, thickness, wind, underlying, pavementTemp + sous-cases), `comments`, `colasSign {name, signature, dateTime}`, `clientSign {name, signature, position, dateTime}`, `clientComments`.
 - **traceability** : `tackRate {litres, m2}`, `tackBroken`, `surfaceClean`, `loads[] {no, docket, tonnes, progress, tipTime, temp, chStart, chEnd, run, width, comment}`, `envReadings[] {time, windKmh, pavementTemp}`, `lotSummary {qtyDelivered, qtyPaved, m2Paved, completedBy}`, `qa {tempsRecorded, dipsRecorded, labDiscussed}`.
-- **diagram** : `strokes[]` (vectoriel) + `png` (rendu), `legends[2] {key, mix, layer, depth, area, tonnes}`, `completedBy`.
+- **diagram** : `pages[] {strokes[], png}` (vectoriel + rendu, une entrée par page de dessin ; la page 1 porte l'en-tête et les légendes, les pages suivantes sont des grilles seules ajoutées à la demande), `legends[2] {key, mix, layer, depth, area, tonnes}`, `completedBy`.
 - **dipRecord / survey** : en-tête (mixType, frequency, existingSurface, sealSize, compactionFactor, upperLimit, lowerLimit ou surveyBy), `courses[3] {course, length, depth, offsets {l, c, r}, direction, level, run, width, readings[] {ch, l, c, r}}`.
 - **quantities** : `payItems[]`, `contractorItems[]` `{no, description, unit, qtyDelivered, waste, qtyUsed, m2Paved, profiledM2}`, `variations`, `comments`, signatures.
 
@@ -140,7 +140,7 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 ## 8. Sorties et envoi
 
 1. **Finish & send** affiche un récapitulatif de ce qui est rempli ou vide (sans bloquer).
-2. Génération du PDF via `print.css` : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » sur tout le pack, pages de suite numérotées).
+2. Génération du PDF via `print.css` : fiches au format officiel, **incohérences du papier corrigées** (bons codes MSF, pagination continue « Page X of Y » calculée sur les pages réellement présentes dans le pack, fiches optionnelles et pages de suite incluses ; les pages de dessin supplémentaires portent le code MSF28-7, alors que le papier indique à tort MSF28-12).
 3. Génération du JSON du poste.
 4. **Destinataires en tickets** : les contacts du carnet s'affichent comme des tickets cliquables ; on en sélectionne un ou plusieurs. Une adresse peut aussi être tapée à la main ; elle devient un ticket et rejoint les derniers destinataires. L'adresse **toujours en copie** (Settings) est ajoutée automatiquement en CC.
 5. **Brouillon de mail, pas d'envoi automatique, pas de script.** Au clic sur « Send », l'app ouvre un brouillon prêt dans l'application mail de l'appareil (Outlook de préférence, ou Gmail), comme le ferait une macro Excel : destinataires, CC, objet (`Lotpack – Job – Date`), corps récapitulatif et pièces jointes. L'utilisateur vérifie puis envoie depuis sa messagerie.
@@ -158,8 +158,8 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 | 1 | Squelette, build, IndexedDB, Jobs / Shifts | Un job créé est retrouvé après rechargement |
 | 2 | Approval to Proceed + signatures | Fiche remplie et signée, aperçu print fidèle |
 | 3 | Asphalt Traceability | Lignes camions, cumul, alertes 2 h |
-| 4 | Site Diagram | Croquis et légendes sauvegardés |
-| 5 | Dip Record + Survey Record | 3 blocs, relevés, contrôle des limites |
+| 4 | Site Diagram | Croquis et légendes sauvegardés, ajout de pages de dessin |
+| 5 | Dip Record + Survey Record | Ajout à la demande, 3 blocs, relevés, contrôle des limites |
 | 6 | Quantity & Placement | Items, totaux, signatures |
 | 7 | PDF complet + Finish & send | Pack complet envoyé par mail depuis une tablette |
 | 8 | Export / import JSON | Aller-retour sans perte entre deux appareils |
@@ -182,4 +182,4 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 
 1. Aucune question bloquante. À confirmer pendant le développement : le format exact de l'objet et du corps du mail.
 
-Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé.
+Décisions prises : limites saisies dans la fiche ; pas de photos en V1 ; une tablette par équipe ; signature sur écran acceptée ; pas de partage avec Strata Opus ; croquis à main levée multicolore ; PDF corrigé et paginé (« Page X of Y » cohérente) ; Site Diagram extensible par pages de dessin supplémentaires ; Dip Record et Survey Record optionnels, ajoutés à la demande.
