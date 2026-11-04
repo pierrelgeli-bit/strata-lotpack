@@ -12,6 +12,8 @@
   // Template pages (0-based index in Lot_Package_PL.pdf) and where their printed page number sits
   const TEMPLATES = {
     approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
+    diagram: { index: 3, pageNo: { cx: 319.6, baselineTop: 826.6, size: 9 } },
+    diagramMore: { index: 4, pageNo: { cx: 319.6, baselineTop: 840.0, size: 9 } },
     traceability: { index: 1, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
     traceabilityCont: { index: 2, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
   };
@@ -56,6 +58,37 @@
     client: {
       name: [38, 221, 760.5, 10], sign: { x0: 240, x1: 349, top: 737.5, bottom: 763 },
       position: [368, 482, 760.5, 10], dateTime: [498, 561, 760.5, 9],
+    },
+  };
+
+  // MSF28-7: grid area, header, legends ([x0, x1] per field; rows = baselines of the 3 legend lines)
+  const DIAG = {
+    first: {
+      grid: { x0: 28.6, x1: 573.6, top: 143.0, bottom: 755.9 },
+      header: [
+        ['client', 110, 292, 85.5, 10], ['date', 370, 571, 85.5, 10],
+        ['projectTitle', 110, 292, 104.5, 10], ['jobNumber', 370, 571, 104.5, 10],
+        ['suburb', 110, 292, 124.8, 10],
+      ],
+      workType: [
+        ['supplyLay', 67.2, 137.3], ['profileFill', 150.8, 137.3], ['keyOverlay', 228.0, 137.3],
+        ['profilePatch', 317.0, 137.3], ['repairWorks', 408.5, 137.3], ['other', 493.3, 137.3],
+      ],
+      rows: [764.5, 775.3, 786.2],
+      legends: [
+        { key: [54, 90], mix: [145.5, 193], area: [249, 297] },
+        { key: [324, 350], mix: [405.5, 468], area: [524, 572] },
+      ],
+      completedBy: [146, 571, 799.6],
+    },
+    more: {
+      grid: { x0: 28.6, x1: 573.6, top: 76.0, bottom: 757.9 },
+      rows: [766.5, 777.3, 788.2],
+      legends: [
+        { key: [54, 92], mix: [146, 192], area: [250, 295] },
+        { key: [323, 352], mix: [407, 469], area: [527, 572] },
+      ],
+      completedBy: [147, 571, 801.6],
     },
   };
 
@@ -251,6 +284,62 @@
 
   const fmtNum = (v) => (v === null || v === undefined || v === '' ? '' : String(v));
 
+  const hexRgb = (hex) => {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+    return m ? PDFLib.rgb(parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255) : PDFLib.rgb(0, 0, 0);
+  };
+
+  // Sketch strokes (grid-relative 0..1) redrawn as vectors in the printed grid
+  function drawStrokes(page, strokes, grid) {
+    const H = page.getHeight();
+    const gw = grid.x1 - grid.x0, gh = grid.bottom - grid.top;
+    (strokes || []).forEach((st) => {
+      if (!st.p || !st.p.length) return;
+      const color = hexRgb(st.c);
+      const lw = Math.max(0.5, st.w * gw);
+      if (st.p.length === 1) {
+        page.drawCircle({ x: grid.x0 + st.p[0][0] * gw, y: H - grid.top - st.p[0][1] * gh, size: lw / 2, color });
+        return;
+      }
+      const path = st.p.map(([x, y], k) => `${k ? 'L' : 'M'}${(x * gw).toFixed(2)} ${(y * gh).toFixed(2)}`).join(' ');
+      page.drawSvgPath(path, {
+        x: grid.x0, y: H - grid.top, borderColor: color, borderWidth: lw,
+        borderLineCap: PDFLib.LineCapStyle.Round,
+      });
+    });
+  }
+
+  function drawLegends(w, L, dp, completedBy) {
+    dp.legends.forEach((lg, k) => {
+      const c = L.legends[k];
+      const t = (v, [x0, x1], row) => w.text(fmtNum(v), x0, x1, L.rows[row], 8.5);
+      t(lg.key, c.key, 0); t(lg.mix, c.mix, 0); t(lg.area, c.area, 0);
+      t(lg.layer, c.mix, 1); t(lg.tonnes, c.area, 1);
+      t(lg.depth, c.mix, 2);
+    });
+    w.text(completedBy, ...L.completedBy, 10);
+  }
+
+  async function drawDiagram(doc, page, fonts, job, shift, entry) {
+    const w = writer(page, fonts);
+    const d = SL.forms.diagram.ensure(shift);
+    const dp = d.pages[entry.pageIndex];
+    const L = entry.pageIndex === 0 ? DIAG.first : DIAG.more;
+    if (entry.pageIndex === 0) {
+      const hv = headerValues(job, shift, d);
+      L.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
+      const wt = new Set(shift.workType || []);
+      L.workType.forEach(([k, cx, cy]) => wt.has(k) && w.tick(cx, cy));
+    }
+    drawStrokes(page, dp.strokes, L.grid);
+    drawLegends(w, L, dp, dp.completedBy || shift.completedBy);
+  }
+
+  function diagramPages(shift) {
+    const d = SL.forms.diagram.ensure(shift);
+    return d.pages.map((p, k) => ({ template: k === 0 ? 'diagram' : 'diagramMore', draw: drawDiagram, pageIndex: k }));
+  }
+
   // One table row of MSF28-10 (truck and / or reading)
   function traceRow(w, cols, top, row) {
     const base = top + 9.9;
@@ -320,6 +409,7 @@
   function packPlan(job, shift) {
     return [
       { template: 'approval', draw: drawApproval },
+      ...diagramPages(shift),
       ...tracePages(shift),
     ];
   }
@@ -370,5 +460,5 @@
     return `Lotpack_${safe(job.jobNumber || job.projectTitle || 'job')}_${shift.date || 'nodate'}.pdf`;
   }
 
-  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TEMPLATES } };
+  SL.pdf = { build, fileName, headerValues, _layout: { APPROVAL, TRACE, DIAG, TEMPLATES } };
 })(window.SL = window.SL || {});
