@@ -171,6 +171,18 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .check-row .chk.main { font-weight: 600; }
 .choice.sub { margin-left: 8px; }
 
+/* Table rows (trucks, readings): one line per row on tablet, cards on phone */
+.rows { display: flex; flex-direction: column; gap: 6px; }
+.trow { display: flex; gap: 6px; align-items: flex-end; }
+.trow .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.trow .cell input { min-height: 44px; padding: 6px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); width: 100%; }
+.trow .cell-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.trow.thead { align-items: flex-end; font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.2; }
+.w-xs { flex: 0 0 64px; } .w-s { flex: 1 1 80px; } .w-m { flex: 1.6 1 110px; } .w-l { flex: 2.4 1 150px; }
+.calc { min-height: 44px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-weight: 600; }
+.icon-btn { flex: 0 0 44px; min-height: 44px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--danger); font-size: 22px; cursor: pointer; }
+.icon-btn.ghost { visibility: hidden; }
+
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
 .sig-box { position: relative; background: #fff; border: 1px dashed #8a929e; border-radius: 8px; height: 160px; }
@@ -185,6 +197,14 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .pdf-frame { flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 
 /* Phone: one column */
+@media (max-width: 900px) {
+  .trow.thead { display: none; }
+  .trow { flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--surface); position: relative; }
+  .trow .cell { flex: 1 1 calc(50% - 6px); }
+  .trow .cell.w-l, .trow .cell.w-m { flex-basis: 100%; }
+  .trow .cell-label { position: static; width: auto; height: auto; clip: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .trow .icon-btn { position: absolute; top: 6px; right: 6px; min-height: 36px; flex-basis: 36px; width: 36px; }
+}
 @media (max-width: 640px) {
   body { font-size: 16px; }
   .topbar { flex-wrap: wrap; padding: 8px 16px; }

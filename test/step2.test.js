@@ -105,16 +105,17 @@ async function sign(page, nth) {
 
   // PDF content
   const info = execFileSync('pdfinfo', [pdfPath]).toString();
-  check(/Pages:\s+1\b/.test(info), 'PDF has 1 page (approval only at this step)');
-  const txt = execFileSync('pdftotext', ['-layout', pdfPath, '-']).toString();
+  const nPages = Number((info.match(/Pages:\s+(\d+)/) || [])[1]);
+  check(nPages >= 1, `PDF built (${nPages} pages, approval first)`);
+  const txt = execFileSync('pdftotext', ['-f', '1', '-l', '1', '-layout', pdfPath, '-']).toString();
   for (const s of ['Transport for NSW', 'Pacific Hwy resurfacing', 'J-24017', 'Coffs Harbour North', '04/11/2026', 'AC14 Class 320', '40 mm',
     'Pierre L.', 'Sam Taylor', 'Site Engineer', 'Hold point released, proceed.', 'Night shift crew of 9.', 'MSF28-6 V3R2']) {
     check(txt.includes(s), `PDF contains “${s}”`);
   }
-  check(/Page\s+1\s+of\s+1/.test(txt) && !/Page\s+1\s+of\s+8/.test(txt), 'Footer reads “Page 1 of 1” (paper “of 8” removed)');
+  check(new RegExp(`Page\\s+1\\s+of\\s+${nPages}\\b`).test(txt) && !/of\s+8/.test(txt), `Footer reads “Page 1 of ${nPages}” (paper “of 8” removed)`);
   const imgs = execFileSync('pdfimages', ['-list', pdfPath]).toString().split('\n').filter((l) => /\bimage\b/.test(l));
   check(imgs.length >= 3, `PDF holds logo + 2 signatures (${imgs.length} images)`);
-  execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', pdfPath, path.join(outDir, 'step2-approval')]);
+  execFileSync('pdftoppm', ['-r', '110', '-png', '-singlefile', '-f', '1', '-l', '1', pdfPath, path.join(outDir, 'step2-approval')]);
 
   // Phone width
   await page.setViewportSize({ width: 390, height: 844 });

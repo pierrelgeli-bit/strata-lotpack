@@ -179,6 +179,18 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .check-row .chk.main { font-weight: 600; }
 .choice.sub { margin-left: 8px; }
 
+/* Table rows (trucks, readings): one line per row on tablet, cards on phone */
+.rows { display: flex; flex-direction: column; gap: 6px; }
+.trow { display: flex; gap: 6px; align-items: flex-end; }
+.trow .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.trow .cell input { min-height: 44px; padding: 6px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); width: 100%; }
+.trow .cell-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.trow.thead { align-items: flex-end; font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.2; }
+.w-xs { flex: 0 0 64px; } .w-s { flex: 1 1 80px; } .w-m { flex: 1.6 1 110px; } .w-l { flex: 2.4 1 150px; }
+.calc { min-height: 44px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-weight: 600; }
+.icon-btn { flex: 0 0 44px; min-height: 44px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--danger); font-size: 22px; cursor: pointer; }
+.icon-btn.ghost { visibility: hidden; }
+
 /* Signature pad: always light, like paper */
 .sig { display: flex; flex-direction: column; gap: 8px; }
 .sig-box { position: relative; background: #fff; border: 1px dashed #8a929e; border-radius: 8px; height: 160px; }
@@ -193,6 +205,14 @@ h3 { font-size: 16px; margin: 0 0 10px; }
 .pdf-frame { flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 
 /* Phone: one column */
+@media (max-width: 900px) {
+  .trow.thead { display: none; }
+  .trow { flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--surface); position: relative; }
+  .trow .cell { flex: 1 1 calc(50% - 6px); }
+  .trow .cell.w-l, .trow .cell.w-m { flex-basis: 100%; }
+  .trow .cell-label { position: static; width: auto; height: auto; clip: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .trow .icon-btn { position: absolute; top: 6px; right: 6px; min-height: 36px; flex-basis: 36px; width: 36px; }
+}
 @media (max-width: 640px) {
   body { font-size: 16px; }
   .topbar { flex-wrap: wrap; padding: 8px 16px; }
@@ -388,9 +408,10 @@ SOFTWARE.
     }));
   }
 
-  const getAllJobs = () => tx('jobs', 'readonly', (s) => s.getAll())
+  // Reads first write any pending autosave, so a screen never shows stale data
+  const getAllJobs = () => flush().then(() => tx('jobs', 'readonly', (s) => s.getAll()))
     .then((jobs) => (jobs || []).map(SL.schema.migrateJob));
-  const getJob = (id) => tx('jobs', 'readonly', (s) => s.get(id))
+  const getJob = (id) => flush().then(() => tx('jobs', 'readonly', (s) => s.get(id)))
     .then((j) => (j ? SL.schema.migrateJob(j) : null));
   const putJob = (job) => tx('jobs', 'readwrite', (s) => s.put(job));
   const deleteJob = (id) => tx('jobs', 'readwrite', (s) => s.delete(id));
@@ -456,7 +477,9 @@ SOFTWARE.
 
   // Template pages (0-based index in Lot_Package_PL.pdf) and where their printed page number sits
   const TEMPLATES = {
-    approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1 } },
+    approval: { index: 0, pageNo: { cx: 291, baselineTop: 838.1, size: 9 } },
+    traceability: { index: 1, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
+    traceabilityCont: { index: 2, pageNo: { cx: 409.2, baselineTop: 584.7, size: 10 } },
   };
 
   // ---------------------------------------------------------------------
@@ -502,6 +525,55 @@ SOFTWARE.
     },
   };
 
+  // MSF28-10: [x0, x1] of each column; tipTime also has the x of its printed ':'
+  const TRACE_COLS_1 = {
+    no: [24.4, 53.2], docket: [53.2, 151.7], tonnes: [151.7, 208.4], progress: [208.4, 258], tip: [258, 321.8, 289.8],
+    temp: [321.8, 367.1], chStart: [367.1, 412.2], chEnd: [412.2, 461.6], run: [461.6, 496.7], width: [496.7, 532],
+    wind: [532, 588.1], pav: [588.1, 644.5], comment: [644.5, 817.4],
+  };
+  const TRACE_COLS_2 = {
+    no: [24.4, 53.0], docket: [53.0, 151.7], tonnes: [151.7, 201.4], progress: [201.4, 250.9], tip: [250.9, 307.7, 279.0],
+    temp: [307.7, 357.2], chStart: [357.2, 406.9], chEnd: [406.9, 456.5], run: [456.5, 491.9], width: [491.9, 527.3],
+    wind: [527.3, 584.0], pav: [584.0, 640.7], comment: [640.7, 817.4],
+  };
+  const TRACE = {
+    rowH: 13.93,
+    first: { top0: 191.9, rows: 23, cols: TRACE_COLS_1 },
+    cont: { top0: 99.7, rows: 31, cols: TRACE_COLS_2, pageNo: { num: [386, 442, 541.6], total: [452, 524, 541.6] } },
+    header: [
+      ['client', 62, 294, 73.8, 9.5],
+      ['date', 330, 440, 73.8, 9.5],
+      ['projectTitle', 88, 294, 87.3, 9.5],
+      ['jobNumber', 362, 440, 87.3, 9.5],
+      ['suburb', 68, 294, 100.6, 9.5],
+      ['product', 70, 440, 123.6, 9.5],
+      ['nominatedThickness', 578, 808, 123.6, 9.5],
+    ],
+    weather: [395, 500, 100.6, 9],
+    tackLitres: [663, 697, 73.0, 9],
+    tackM2: [712, 750, 73.0, 9],
+    // words to circle: [x0, x1, top, bottom]
+    tackBroken: { yes: [682.6, 698.9, 78.8, 88.8], no: [729.4, 742.3, 78.8, 88.8] },
+    surfaceClean: { yes: [772.2, 788.4, 93.4, 103.3], no: [796.8, 809.5, 93.4, 103.3] },
+    workType: [
+      ['supplyLay', 36.6, 134.2], ['profileFill', 154.2, 134.2], ['keyOverlay', 274.5, 134.2],
+      ['profilePatch', 36.6, 147.5], ['repairWorks', 153.0, 147.5], ['other', 274.8, 147.5],
+    ],
+    layer: [
+      ['base', 455.1, 134.2], ['intermediate', 581.0, 134.2], ['wearing', 703.5, 134.2],
+      ['correction', 455.1, 147.5], ['other', 582.1, 147.5],
+    ],
+    lot: {
+      qtyDelivered: [92, 150, 536.4, 8.5, 'center'], qtyPaved: [208, 256, 536.4, 8.5, 'center'],
+      m2Paved: [352, 420, 536.4, 8.5, 'center'], completedBy: [92, 420, 550.2, 8.5, 'left'],
+    },
+    qa: {
+      tempsRecorded: { yes: [546.8, 533.9], no: [589.1, 533.9] },
+      dipsRecorded: { yes: [730.4, 533.9], no: [772.7, 533.9] },
+      labDiscussed: { yes: [679.8, 547.9], no: [721.9, 547.9] },
+    },
+  };
+
   // ---------------------------------------------------------------------
   let templateBytes = null;
   function template() {
@@ -541,6 +613,7 @@ SOFTWARE.
       while (s.length > 1 && font.widthOfTextAtSize(s, sz) > w) s = s.slice(0, -2) + '…';
       let x = x0;
       if (opts.align === 'center') x = x0 + (w - font.widthOfTextAtSize(s, sz)) / 2;
+      if (opts.align === 'right') x = x1 - font.widthOfTextAtSize(s, sz);
       page.drawText(s, { x, y: H - baselineTop, size: sz, font, color: opts.color || ink });
     }
 
@@ -576,7 +649,16 @@ SOFTWARE.
       page.drawImage(img, { x: box.x0 + (bw - w) / 2, y: H - box.bottom + (bh - hgt) / 2, width: w, height: hgt });
     }
 
-    return { text, lines, tick, image };
+    // Circle a printed word (Yes / No answers without boxes)
+    function circle([x0, x1, top, bottom]) {
+      page.drawEllipse({
+        x: (x0 + x1) / 2, y: H - (top + bottom) / 2 - 0.6,
+        xScale: (x1 - x0) / 2 + 3.5, yScale: (bottom - top) / 2 + 1.2,
+        borderColor: ink, borderWidth: 1.1,
+      });
+    }
+
+    return { text, lines, tick, image, circle };
   }
 
   async function embedSignature(doc, dataUrl) {
@@ -633,10 +715,78 @@ SOFTWARE.
     w.text(fmtDateTime(cl.dateTime), ...APPROVAL.client.dateTime);
   }
 
-  // Sheets of a shift, in pack order: [{ template, draw }]
+  const fmtNum = (v) => (v === null || v === undefined || v === '' ? '' : String(v));
+
+  // One table row of MSF28-10 (truck and / or reading)
+  function traceRow(w, cols, top, row) {
+    const base = top + 9.9;
+    const c = (k, v, align = 'center', size = 8) => w.text(fmtNum(v), cols[k][0] + 2, cols[k][1] - 2, base, size, { align });
+    const l = row.load;
+    if (l) {
+      c('no', l.no); c('docket', l.docket, 'left'); c('tonnes', l.tonnes); c('progress', l.progress);
+      if (/^\d{1,2}:\d{2}$/.test(l.tipTime || '')) {
+        const [hh, mm] = l.tipTime.split(':');
+        const colon = cols.tip[2];
+        w.text(hh.padStart(2, '0'), cols.tip[0] + 2, colon - 2, base, 8, { align: 'right' });
+        w.text(mm, colon + 2.5, cols.tip[1] - 2, base, 8);
+      }
+      c('temp', l.temp); c('chStart', l.chStart); c('chEnd', l.chEnd); c('run', l.run); c('width', l.width);
+      c('comment', l.comment, 'left', 7.5);
+    }
+    const r = row.reading;
+    if (r) {
+      // reading time in small, value on the right of the wind cell
+      w.text(r.time || '', cols.wind[0] + 1.5, cols.wind[0] + 24, base - 0.5, 5.5);
+      w.text(fmtNum(r.windKmh), cols.wind[0] + 24, cols.wind[1] - 3, base, 8, { align: 'right' });
+      c('pav', r.pavementTemp);
+    }
+  }
+
+  async function drawTraceability(doc, page, fonts, job, shift, entry) {
+    const w = writer(page, fonts);
+    const t = SL.forms.traceability.ensure(shift);
+    const hv = headerValues(job, shift, t);
+    TRACE.header.forEach(([k, x0, x1, top, size]) => w.text(hv[k], x0, x1, top, size));
+    w.text(shift.weather, ...TRACE.weather);
+    w.text(fmtNum(t.tackRate.litres), ...TRACE.tackLitres, { align: 'center' });
+    w.text(fmtNum(t.tackRate.m2), ...TRACE.tackM2, { align: 'center' });
+    if (TRACE.tackBroken[t.tackBroken]) w.circle(TRACE.tackBroken[t.tackBroken]);
+    if (TRACE.surfaceClean[t.surfaceClean]) w.circle(TRACE.surfaceClean[t.surfaceClean]);
+    const wt = new Set(shift.workType || []);
+    TRACE.workType.forEach(([k, cx, cy]) => wt.has(k) && w.tick(cx, cy));
+    const ly = new Set(shift.layer || []);
+    TRACE.layer.forEach(([k, cx, cy]) => ly.has(k) && w.tick(cx, cy));
+
+    entry.rows.forEach((row, i) => traceRow(w, TRACE.first.cols, TRACE.first.top0 + i * TRACE.rowH, row));
+
+    const lv = SL.forms.traceability.lotValues(job, shift);
+    Object.entries(TRACE.lot).forEach(([k, [x0, x1, top, size, align]]) => w.text(fmtNum(lv[k]), x0, x1, top, size, { align }));
+    Object.entries(TRACE.qa).forEach(([k, pos]) => { const p = pos[t.qa[k]]; if (p) w.tick(p[0], p[1]); });
+  }
+
+  async function drawTraceabilityCont(doc, page, fonts, job, shift, entry, i, n) {
+    const w = writer(page, fonts);
+    entry.rows.forEach((row, k) => traceRow(w, TRACE.cont.cols, TRACE.cont.top0 + k * TRACE.rowH, row));
+    // "Page Number : __ of __" printed in the table: same numbering as the footer
+    w.text(String(i + 1), ...TRACE.cont.pageNo.num, 10, { align: 'center' });
+    w.text(String(n), ...TRACE.cont.pageNo.total, 10, { align: 'center' });
+  }
+
+  // MSF28-10 pages: 23 rows on the first page, 31 on each continuation page
+  function tracePages(shift) {
+    const rows = SL.forms.traceability.tableRows(shift);
+    const pages = [{ template: 'traceability', draw: drawTraceability, rows: rows.slice(0, TRACE.first.rows) }];
+    for (let k = TRACE.first.rows; k < rows.length; k += TRACE.cont.rows) {
+      pages.push({ template: 'traceabilityCont', draw: drawTraceabilityCont, rows: rows.slice(k, k + TRACE.cont.rows) });
+    }
+    return pages;
+  }
+
+  // Sheets of a shift, in pack order: [{ template, draw, ...data }]
   function packPlan(job, shift) {
     return [
       { template: 'approval', draw: drawApproval },
+      ...tracePages(shift),
     ];
   }
 
@@ -647,11 +797,12 @@ SOFTWARE.
       const t = TEMPLATES[plan[i].template].pageNo;
       if (!t) return;
       const black = PDFLib.rgb(0, 0, 0);
+      const sz = t.size || 9;
       const parts = [['Page ', fonts.regular], [String(i + 1), fonts.bold], [' of ', fonts.regular], [String(n), fonts.bold]];
-      const total = parts.reduce((s, [txt, f]) => s + f.widthOfTextAtSize(txt, 9), 0);
+      const total = parts.reduce((s, [txt, f]) => s + f.widthOfTextAtSize(txt, sz), 0);
       let x = t.cx - total / 2;
       const y = page.getHeight() - t.baselineTop;
-      parts.forEach(([txt, f]) => { page.drawText(txt, { x, y, size: 9, font: f, color: black }); x += f.widthOfTextAtSize(txt, 9); });
+      parts.forEach(([txt, f]) => { page.drawText(txt, { x, y, size: sz, font: f, color: black }); x += f.widthOfTextAtSize(txt, sz); });
     });
   }
 
@@ -669,7 +820,7 @@ SOFTWARE.
     const pages = [];
     for (let i = 0; i < plan.length; i++) {
       const page = doc.addPage(copied[i]);
-      await plan[i].draw(doc, page, fonts, job, shift);
+      await plan[i].draw(doc, page, fonts, job, shift, plan[i], i, plan.length);
       pages.push(page);
     }
     paginate(pages, plan, fonts);
@@ -747,21 +898,23 @@ SOFTWARE.
 
   // Header field shared by all sheets: shows the job / shift value, a local edit
   // is kept on this sheet only (sheet.header[key]); clearing it returns to the common value.
+  // opts.direct: the override lives in sheet[key] instead of sheet.header[key]
   function headerField(label, sheet, key, common, onChange, opts = {}) {
-    sheet.header = sheet.header || {};
+    const store = opts.direct ? sheet : (sheet.header = sheet.header || {});
     const id = `f${++fieldSeq}`;
-    const has = () => sheet.header[key] !== undefined && sheet.header[key] !== null && sheet.header[key] !== '';
+    const has = () => store[key] !== undefined && store[key] !== null && store[key] !== '';
     const str = (v) => (v === null || v === undefined ? '' : String(v));
     const input = h('input', {
       id, type: opts.type || 'text', inputmode: opts.inputmode, autocomplete: 'off',
-      value: has() ? str(sheet.header[key]) : str(common), dataset: { key },
+      value: has() ? str(store[key]) : str(common), dataset: { key },
     });
     const tag = h('span', { class: 'local-tag' }, 'edited on this sheet');
     const sync = () => { tag.hidden = !has(); };
     input.addEventListener('input', () => {
       const v = input.value;
-      if (v === '' || v === str(common)) delete sheet.header[key];
-      else sheet.header[key] = opts.number ? Number(v.replace(',', '.')) || v : v;
+      if (v === '' || v === str(common)) store[key] = opts.direct ? '' : undefined;
+      else store[key] = opts.number ? Number(v.replace(',', '.')) || v : v;
+      if (store[key] === undefined) delete store[key];
       sync();
       onChange();
     });
@@ -1057,6 +1210,354 @@ SOFTWARE.
   SL.forms.approval = { render, status, warning, ensure };
 })(window.SL = window.SL || {});
 </script>
+  <script>/* forms/traceability.js */
+/* MSF28-10 — Asphalt Traceability */
+(function (SL) {
+  'use strict';
+  const { h, field, headerField, multi, nowLocal } = SL.ui;
+
+  const WORK_TYPES = [
+    ['supplyLay', 'Supply & Lay'], ['profileFill', 'Profile & Fill'], ['keyOverlay', 'Key & Overlay'],
+    ['profilePatch', 'Profile & Patch'], ['repairWorks', 'Repair Works'], ['other', 'OTHER'],
+  ];
+  const LAYERS = [
+    ['base', 'Base'], ['intermediate', 'Intermediate'], ['wearing', 'Wearing'],
+    ['correction', 'Correction'], ['other', 'OTHER'],
+  ];
+  // Truck row columns: [key, label, type, css width class]
+  const LOAD_COLS = [
+    ['no', 'Load No', 'number', 'w-xs'],
+    ['docket', 'Docket No', 'text', 'w-m'],
+    ['tonnes', 'Load Tonnes (T)', 'number', 'w-s'],
+    ['progress', 'Progress Tonnes (T)', 'calc', 'w-s'],
+    ['tipTime', 'Tip Time', 'time', 'w-s'],
+    ['temp', 'Load Temp (°C)', 'number', 'w-s'],
+    ['chStart', 'Start Chainage', 'number', 'w-s'],
+    ['chEnd', 'Finish Chainage', 'number', 'w-s'],
+    ['run', 'Run No', 'number', 'w-xs'],
+    ['width', 'Run Width', 'number', 'w-xs'],
+    ['comment', 'Comments', 'text', 'w-l'],
+  ];
+
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const hhmm = () => nowLocal().slice(11, 16);
+
+  function ensure(shift) {
+    const t = shift.traceability = shift.traceability || {};
+    t.header = t.header || {};
+    t.loads = t.loads || [];
+    t.envReadings = t.envReadings || [];
+    t.tackRate = t.tackRate || { litres: null, m2: null };
+    if (t.tackBroken === undefined) t.tackBroken = '';
+    if (t.surfaceClean === undefined) t.surfaceClean = '';
+    t.lotSummary = t.lotSummary || { qtyDelivered: null, qtyPaved: null, m2Paved: null, completedBy: '' };
+    t.qa = t.qa || { tempsRecorded: '', dipsRecorded: '', labDiscussed: '' };
+    t.limits = t.limits || { minLoadTemp: null, maxWind: null, minPavementTemp: null };
+    return t;
+  }
+
+  // Cumulative tonnes, written back on each row (kept in the JSON export)
+  function computeProgress(t) {
+    let sum = 0;
+    t.loads.forEach((l) => {
+      if (num(l.tonnes) !== null) sum += l.tonnes;
+      l.progress = num(l.tonnes) !== null || sum ? round2(sum) : null;
+    });
+    return round2(sum);
+  }
+
+  // Lot summary: typed value, else prefilled from the truck rows
+  function lotValues(job, shift) {
+    const t = ensure(shift);
+    const total = computeProgress(t);
+    const ls = t.lotSummary;
+    const pick = (v, d) => (v !== null && v !== undefined && v !== '' ? v : d);
+    return {
+      qtyDelivered: pick(ls.qtyDelivered, total || null),
+      qtyPaved: pick(ls.qtyPaved, total || null),
+      m2Paved: ls.m2Paved,
+      completedBy: pick(ls.completedBy, shift.completedBy),
+    };
+  }
+
+  // "HH:MM" -> minutes, with times after midnight kept after the shift start
+  function timeline(times) {
+    const mins = times.map((s) => (/^\d{1,2}:\d{2}$/.test(s || '') ? Number(s.split(':')[0]) * 60 + Number(s.split(':')[1]) : null));
+    const first = mins.find((m) => m !== null);
+    return mins.map((m) => (m === null ? null : (first !== undefined && m < first - 360 ? m + 1440 : m)));
+  }
+
+  // Rows of the PDF table: each reading goes on the truck row closest in time
+  // (in order, one reading per row; a reading before the first truck goes on row 1)
+  function tableRows(shift) {
+    const t = ensure(shift);
+    const loads = t.loads;
+    const readings = t.envReadings.slice();
+    const all = timeline([...loads.map((l) => l.tipTime), ...readings.map((r) => r.time)]);
+    const loadMin = all.slice(0, loads.length);
+    const readMin = all.slice(loads.length);
+    const order = readings.map((r, i) => ({ r, m: readMin[i] }))
+      .sort((a, b) => (a.m ?? 1e9) - (b.m ?? 1e9));
+    const rows = loads.map((l) => ({ load: l, reading: null }));
+    let next = 0;
+    order.forEach(({ r, m }) => {
+      let best = next;
+      if (m !== null) {
+        let bestD = Infinity;
+        for (let i = next; i < loads.length; i++) {
+          if (loadMin[i] === null) continue;
+          const d = Math.abs(loadMin[i] - m);
+          if (d < bestD) { bestD = d; best = i; }
+        }
+      }
+      while (rows.length <= best) rows.push({ load: null, reading: null });
+      rows[best].reading = r;
+      next = best + 1;
+    });
+    return rows;
+  }
+
+  function status(job, shift) {
+    const t = shift.traceability || {};
+    const loads = t.loads || [];
+    const anyHeader = (t.tackRate && (t.tackRate.litres || t.tackRate.m2)) || t.tackBroken || t.surfaceClean;
+    if (!loads.length && !(t.envReadings || []).length && !anyHeader) return 'empty';
+    const qa = t.qa || {};
+    return loads.length && qa.tempsRecorded && qa.dipsRecorded && qa.labDiscussed ? 'complete' : 'progress';
+  }
+
+  // Non-blocking warnings
+  function warning(job, shift) {
+    const t = shift.traceability || {};
+    const loads = t.loads || [];
+    const readings = t.envReadings || [];
+    const lim = t.limits || {};
+    const out = [];
+    if ((shift.layer || []).length > 1) out.push('Traceability: only 1 layer / mix type per page, or identify it in the comments.');
+    if (loads.length && !readings.length) out.push('Traceability: no wind / pavement temperature reading yet (required before start).');
+    // Reminder every 2 h, only while the shift is today
+    if (readings.length && shift.date === SL.schema.todayIso()) {
+      const mins = timeline(readings.map((r) => r.time)).filter((m) => m !== null);
+      if (mins.length) {
+        const last = Math.max(...mins);
+        const now = timeline([readings.find((r) => r.time).time, hhmm()])[1];
+        const ago = now - last;
+        if (ago >= 120) out.push(`Traceability: last wind / pavement reading ${Math.floor(ago / 60)} h ${String(ago % 60).padStart(2, '0')} ago — record a new one.`);
+      }
+    }
+    if (num(lim.minLoadTemp) !== null) {
+      const low = loads.filter((l) => num(l.temp) !== null && l.temp < lim.minLoadTemp);
+      if (low.length) out.push(`Traceability: load temp below ${lim.minLoadTemp} °C on load ${low.map((l) => l.no ?? '?').join(', ')}.`);
+    }
+    if (num(lim.maxWind) !== null) {
+      const hi = readings.filter((r) => num(r.windKmh) !== null && r.windKmh > lim.maxWind);
+      if (hi.length) out.push(`Traceability: wind above ${lim.maxWind} km/h at ${hi.map((r) => r.time || '?').join(', ')}.`);
+    }
+    if (num(lim.minPavementTemp) !== null) {
+      const low = readings.filter((r) => num(r.pavementTemp) !== null && r.pavementTemp < lim.minPavementTemp);
+      if (low.length) out.push(`Traceability: pavement temp below ${lim.minPavementTemp} °C at ${low.map((r) => r.time || '?').join(', ')}.`);
+    }
+    return out;
+  }
+
+  // Yes / No toggle stored as 'yes' | 'no' | ''
+  function yesNo(label, obj, key, onChange) {
+    const name = `yn${Math.random().toString(36).slice(2)}`;
+    const opt = (v, l) => {
+      const input = h('input', { type: 'radio', name, value: v, checked: obj[key] === v });
+      input.addEventListener('click', () => {
+        obj[key] = obj[key] === v ? '' : v; // tap again to clear
+        input.checked = obj[key] === v;
+        onChange();
+      });
+      return h('label', { class: 'chk' }, input, h('span', {}, l));
+    };
+    return h('div', { class: 'field' }, h('label', {}, label), h('div', { class: 'choice' }, opt('yes', 'Yes'), opt('no', 'No')));
+  }
+
+  // Number field that shows a computed value until something is typed
+  function prefilled(label, obj, key, compute, onChange) {
+    const id = `pf${Math.random().toString(36).slice(2)}`;
+    const typed = () => obj[key] !== null && obj[key] !== undefined && obj[key] !== '';
+    const input = h('input', { id, type: 'text', inputmode: 'decimal', autocomplete: 'off', dataset: { key } });
+    const tag = h('span', { class: 'local-tag' }, 'typed');
+    const show = () => {
+      if (!typed()) { const c = compute(); input.value = c === null || c === undefined ? '' : String(c); }
+      tag.hidden = !typed();
+    };
+    input.value = typed() ? String(obj[key]) : '';
+    input.addEventListener('input', () => {
+      const raw = input.value.trim().replace(',', '.');
+      obj[key] = raw === '' ? null : (Number.isFinite(Number(raw)) ? Number(raw) : raw);
+      tag.hidden = !typed();
+      onChange();
+    });
+    input.addEventListener('blur', show);
+    show();
+    const el = h('div', { class: 'field' }, h('label', { for: id }, label, ' ', tag), input);
+    el.refresh = () => { if (document.activeElement !== input) show(); };
+    return el;
+  }
+
+  function render(job, shift, save) {
+    const t = ensure(shift);
+    computeProgress(t);
+
+    const loadsBox = h('div', { class: 'rows' });
+    const readingsBox = h('div', { class: 'rows' });
+    let lotFields = [];
+    const changed = () => {
+      computeProgress(t);
+      loadsBox.querySelectorAll('[data-progress]').forEach((el) => {
+        const l = t.loads[Number(el.dataset.progress)];
+        el.textContent = l && l.progress !== null ? String(l.progress) : '';
+      });
+      lotFields.forEach((f) => f.refresh());
+      save();
+    };
+
+    function loadRow(l, i) {
+      const cells = LOAD_COLS.map(([k, label, type, w]) => {
+        if (type === 'calc') {
+          return h('div', { class: `cell ${w}` }, h('span', { class: 'cell-label' }, label),
+            h('output', { class: 'calc', dataset: { progress: String(i) } }, l.progress ?? ''));
+        }
+        const f = field(label, l, k, changed, { type: type === 'time' ? 'time' : type });
+        f.className = `cell ${w}`;
+        f.querySelector('label').className = 'cell-label';
+        return f;
+      });
+      const del = h('button', {
+        type: 'button', class: 'icon-btn', 'aria-label': `Delete load ${l.no ?? i + 1}`, title: 'Delete row',
+        onclick: () => { if (confirm(`Delete load ${l.no ?? i + 1}?`)) { t.loads.splice(i, 1); drawLoads(); changed(); } },
+      }, '×');
+      return h('div', { class: 'trow' }, cells, del);
+    }
+
+    function drawLoads() {
+      loadsBox.replaceChildren(
+        h('div', { class: 'trow thead', 'aria-hidden': 'true' }, LOAD_COLS.map(([, label, , w]) => h('div', { class: `cell ${w}` }, label)), h('span', { class: 'icon-btn ghost' })),
+        ...(t.loads.length ? t.loads.map(loadRow) : [h('p', { class: 'empty' }, 'No truck yet.')]));
+    }
+
+    function readingRow(r, i) {
+      const f = (label, k, type) => {
+        const el = field(label, r, k, save, { type });
+        el.className = 'cell w-s';
+        el.querySelector('label').className = 'cell-label';
+        return el;
+      };
+      const del = h('button', {
+        type: 'button', class: 'icon-btn', 'aria-label': `Delete reading ${r.time || i + 1}`, title: 'Delete reading',
+        onclick: () => { t.envReadings.splice(i, 1); drawReadings(); save(); },
+      }, '×');
+      return h('div', { class: 'trow' }, f('Time', 'time', 'time'), f('Wind Velocity (km/h)', 'windKmh', 'number'), f('Pavement Temp (°C)', 'pavementTemp', 'number'), del);
+    }
+
+    function drawReadings() {
+      readingsBox.replaceChildren(
+        h('div', { class: 'trow thead', 'aria-hidden': 'true' },
+          h('div', { class: 'cell w-s' }, 'Time'), h('div', { class: 'cell w-s' }, 'Wind Velocity (km/h)'), h('div', { class: 'cell w-s' }, 'Pavement Temp (°C)'), h('span', { class: 'icon-btn ghost' })),
+        ...(t.envReadings.length ? t.envReadings.map(readingRow) : [h('p', { class: 'empty' }, 'No reading yet.')]));
+    }
+
+    const addLoad = () => {
+      const last = t.loads[t.loads.length - 1];
+      t.loads.push({
+        no: last && num(last.no) !== null ? last.no + 1 : t.loads.length + 1,
+        docket: '', tonnes: null, progress: null, tipTime: hhmm(), temp: null,
+        chStart: null, chEnd: null, run: last ? last.run : null, width: last ? last.width : null, comment: '',
+      });
+      drawLoads();
+      changed();
+      const rows = loadsBox.querySelectorAll('.trow:not(.thead)');
+      const row = rows[rows.length - 1];
+      row.scrollIntoView({ block: 'center' });
+      row.querySelector('input[data-key=docket]').focus();
+    };
+    const addReading = () => {
+      t.envReadings.push({ time: hhmm(), windKmh: null, pavementTemp: null });
+      drawReadings();
+      save();
+      const rows = readingsBox.querySelectorAll('.trow:not(.thead)');
+      rows[rows.length - 1].querySelector('input[data-key=windKmh]').focus();
+    };
+
+    drawLoads();
+    drawReadings();
+
+    const ls = t.lotSummary;
+    lotFields = [
+      prefilled('QTY Delivered (T)', ls, 'qtyDelivered', () => lotValues(job, shift).qtyDelivered, save),
+      prefilled('QTY Paved (T)', ls, 'qtyPaved', () => lotValues(job, shift).qtyPaved, save),
+    ];
+
+    return h('div', { class: 'sheet' },
+      h('section', { class: 'block' },
+        h('h3', {}, 'Header'),
+        h('p', { class: 'muted small' }, 'Filled from the job and shift. A change here applies to this sheet only.'),
+        h('div', { class: 'grid' },
+          headerField('Client', t, 'client', job.client, save),
+          headerField('Date', t, 'date', shift.date, save, { type: 'date' }),
+          headerField('Project Title', t, 'projectTitle', job.projectTitle, save),
+          headerField('Job Number', t, 'jobNumber', job.jobNumber, save),
+          headerField('Suburb', t, 'suburb', job.suburb, save),
+          field('Weather Conditions', shift, 'weather', save),
+          headerField('Product', t, 'product', shift.product, save),
+          headerField('Nominated Layer Thickness (mm)', t, 'nominatedThickness', shift.nominatedThickness, save, { inputmode: 'decimal', number: true }))),
+
+      h('section', { class: 'block' },
+        h('h3', {}, 'Tack coat & surface'),
+        h('div', { class: 'grid' },
+          field('Tack Coat Application Rate — Litres', t.tackRate, 'litres', save, { type: 'number' }),
+          field('Tack Coat Application Rate — m²', t.tackRate, 'm2', save, { type: 'number' }),
+          yesNo('Tack Coat Broken Before Paving?', t, 'tackBroken', save),
+          yesNo('Existing Surface Clean, dry and free from loose material?', t, 'surfaceClean', save))),
+
+      h('section', { class: 'block' },
+        h('h3', {}, 'Type of work'),
+        h('div', { class: 'choice' }, WORK_TYPES.map(([k, l]) => multi(l, shift, 'workType', k, save))),
+        h('h3', {}, 'Layer'),
+        h('div', { class: 'choice' }, LAYERS.map(([k, l]) => multi(l, shift, 'layer', k, save))),
+        h('p', { class: 'muted small' }, 'Paving should not commence without a signed Approval to Proceed/ Hold Point. Only 1 layer/ mix type per page or identify in comments.')),
+
+      h('section', { class: 'block' },
+        h('div', { class: 'row-head' }, h('h3', {}, 'Trucks'), SL.ui.button('Add row', addLoad, 'primary')),
+        loadsBox),
+
+      h('section', { class: 'block' },
+        h('div', { class: 'row-head' }, h('h3', {}, 'Wind & pavement temperature — every 2 hrs, including before start'), SL.ui.button('Add reading', addReading, 'primary')),
+        readingsBox),
+
+      h('section', { class: 'block' },
+        h('h3', {}, 'Lot Summary'),
+        h('div', { class: 'grid' },
+          ...lotFields,
+          field('m² paved', ls, 'm2Paved', save, { type: 'number' }),
+          headerField('Completed by', ls, 'completedBy', shift.completedBy, save, { direct: true }))),
+
+      h('section', { class: 'block' },
+        h('h3', {}, 'QA Checklist'),
+        h('div', { class: 'grid' },
+          yesNo('Temps recorded', t.qa, 'tempsRecorded', save),
+          yesNo('Dips Recorded', t.qa, 'dipsRecorded', save),
+          yesNo('Lot discussed with Lab Technician (Diagram + Defects)', t.qa, 'labDiscussed', save))),
+
+      h('section', { class: 'block' },
+        h('h3', {}, 'Limits (not printed)'),
+        h('p', { class: 'muted small' }, 'Values from the specification of this job. Out-of-limit values show a warning; nothing is blocked.'),
+        h('div', { class: 'grid' },
+          field('Min load temp (°C)', t.limits, 'minLoadTemp', save, { type: 'number' }),
+          field('Max wind (km/h)', t.limits, 'maxWind', save, { type: 'number' }),
+          field('Min pavement temp (°C)', t.limits, 'minPavementTemp', save, { type: 'number' }))),
+    );
+  }
+
+  SL.forms = SL.forms || {};
+  SL.forms.traceability = { render, status, warning, ensure, tableRows, lotValues, computeProgress };
+})(window.SL = window.SL || {});
+</script>
   <script>/* app.js */
 /* Entry point: router and screens (Jobs, Job, Shift, Settings) */
 (function (SL) {
@@ -1216,11 +1717,13 @@ SOFTWARE.
     // Non-blocking warnings (e.g. approval not signed)
     const warnEl = h('div', { class: 'warn', role: 'status' });
     const refreshWarnings = () => {
-      const msgs = Object.values(SL.forms || {}).map((f) => (f.warning ? f.warning(job, shift) : '')).filter(Boolean);
+      const msgs = Object.values(SL.forms || {}).flatMap((f) => [].concat(f.warning ? f.warning(job, shift) : [])).filter(Boolean);
       warnEl.replaceChildren(...msgs.map((m) => h('div', {}, '⚠ ', m)));
       warnEl.hidden = !msgs.length;
     };
     refreshWarnings();
+    // Time-based reminders (2 h readings) refresh every minute while this screen is open
+    const timer = setInterval(() => { if (!warnEl.isConnected) clearInterval(timer); else refreshWarnings(); }, 60000);
 
     const saveSheet = () => {
       SL.db.touch(job, shift);

@@ -56,21 +56,23 @@
 
   // Header field shared by all sheets: shows the job / shift value, a local edit
   // is kept on this sheet only (sheet.header[key]); clearing it returns to the common value.
+  // opts.direct: the override lives in sheet[key] instead of sheet.header[key]
   function headerField(label, sheet, key, common, onChange, opts = {}) {
-    sheet.header = sheet.header || {};
+    const store = opts.direct ? sheet : (sheet.header = sheet.header || {});
     const id = `f${++fieldSeq}`;
-    const has = () => sheet.header[key] !== undefined && sheet.header[key] !== null && sheet.header[key] !== '';
+    const has = () => store[key] !== undefined && store[key] !== null && store[key] !== '';
     const str = (v) => (v === null || v === undefined ? '' : String(v));
     const input = h('input', {
       id, type: opts.type || 'text', inputmode: opts.inputmode, autocomplete: 'off',
-      value: has() ? str(sheet.header[key]) : str(common), dataset: { key },
+      value: has() ? str(store[key]) : str(common), dataset: { key },
     });
     const tag = h('span', { class: 'local-tag' }, 'edited on this sheet');
     const sync = () => { tag.hidden = !has(); };
     input.addEventListener('input', () => {
       const v = input.value;
-      if (v === '' || v === str(common)) delete sheet.header[key];
-      else sheet.header[key] = opts.number ? Number(v.replace(',', '.')) || v : v;
+      if (v === '' || v === str(common)) store[key] = opts.direct ? '' : undefined;
+      else store[key] = opts.number ? Number(v.replace(',', '.')) || v : v;
+      if (store[key] === undefined) delete store[key];
       sync();
       onChange();
     });

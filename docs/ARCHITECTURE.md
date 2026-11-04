@@ -21,7 +21,7 @@ Hors périmètre V1 : back-end, synchronisation, comptes utilisateurs, installat
 | --- | --- | --- | --- |
 | MSF28-6 | V3R2 – 05/09/2024 | Approval to Proceed / Hold Point Release | En-tête, type de travaux, couche, checklist de vérification, commentaires, signatures COLAS et client. Une par poste |
 | MSF28-7 | V2R3 – 13/09/2024 | Site Diagram | Croquis sur grille, légendes (key, mix, layer, depth, area, tonnes), completed by. Pages de dessin supplémentaires (grille seule) ajoutables à la demande |
-| MSF28-10 | V1R5 – 13/09/2024 | Asphalt Traceability | En-tête + météo + tack coat, une ligne par camion, relevés vent / température chaussée toutes les 2 h, lot summary, QA checklist. Page de suite de 31 lignes |
+| MSF28-10 | V1R5 – 13/09/2024 | Asphalt Traceability | En-tête + météo + tack coat, une ligne par camion, relevés vent / température chaussée toutes les 2 h, lot summary, QA checklist. 23 lignes en page 1, pages de suite de 31 lignes |
 | MSF28-9 | V3R3 – 29/01/2025 | Pavement Measured Dip Record | 3 blocs de couche (CC/IC/WC), limites de dip, compaction factor, relevés CH gauche / centre / droite. Optionnelle : ajoutée au lotpack à la demande |
 | MSF28-12 | V3R4 – 29/01/2025 | Survey Record | Même structure que le dip record, couche 1/2/3, relevé fait par COLAS ou client. Optionnelle : ajoutée au lotpack à la demande |
 | MSF28-11 | V2R4 – 13/09/2024 | Quantity & Placement Agreement | Pay items, contractor items, quantités, waste, m², variations, signatures |
@@ -128,11 +128,11 @@ Règles d'import : fusion par `id`, la version la plus récente (`updatedAt`) l'
 - **Aucun champ n'est obligatoire.** Les contrôles affichent des avertissements, jamais de blocage.
 - Les tableaux se remplissent ligne par ligne avec un bouton « Add row », comme sur papier.
 - Les tonnes cumulées (progress) sont calculées automatiquement.
-- Relevés vent / température chaussée : une ligne ajoutée à chaque relevé, avec l'heure. Rappel discret si plus de 2 h depuis le dernier relevé, sans obligation.
-- Limites (température, vent, dips) saisies directement dans la fiche, pas de valeurs codées en dur.
+- Relevés vent / température chaussée : une ligne ajoutée à chaque relevé, avec l'heure, dans une liste séparée des camions. Dans le PDF, chaque relevé va dans les colonnes jaunes de la ligne camion la plus proche dans le temps (le relevé avant démarrage sur la 1re ligne), avec son heure en petit. Rappel discret si plus de 2 h depuis le dernier relevé, sans obligation.
+- Limites (température, vent, dips) saisies directement dans la fiche, pas de valeurs codées en dur. Traçabilité : traceability.limits {minLoadTemp, maxWind, minPavementTemp}, non imprimées ; tackBroken et surfaceClean valent yes, no ou vide (réponse entourée dans le PDF).
 - Avertissement tant que l'Approval to Proceed du poste n'est pas signé.
 - Une seule couche / un seul enrobé par fiche de traçabilité, sinon commentaire conseillé.
-- Lot summary prérempli à partir des lignes de camions.
+- Lot summary : QTY Delivered et QTY Paved préremplis avec la somme des tonnes des camions (modifiables) ; m² paved saisi à la main.
 
 ## 7. Interface
 

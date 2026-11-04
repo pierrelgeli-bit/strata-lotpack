@@ -17,10 +17,10 @@ Assemble `src/` en un seul fichier `dist/strata-lotpack.html`.
 ## Tests
 
 ```bash
-node build/build.js && node test/step1.test.js && node test/step2.test.js
+node build/build.js && node test/step1.test.js && node test/step2.test.js && node test/step3.test.js
 ```
 
-Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Le PDF généré par le test de l'étape 2 est écrit dans `test/out/`.
+Les tests utilisent Playwright (Chromium) et les outils poppler (`pdftotext`, `pdfinfo`, `pdfimages`, `pdftoppm`). Les PDF générés par les tests sont écrits dans `test/out/`.
 
 ## Gabarit PDF
 
@@ -38,7 +38,7 @@ qui écrit `src/assets/lotpack-template.pdf` (nécessite PyMuPDF). À relancer s
 | --- | --- | --- |
 | 1 | Squelette, build, IndexedDB, Jobs / Shifts | Fait |
 | 2 | Approval to Proceed + signatures | Fait |
-| 3 | Asphalt Traceability | À faire |
+| 3 | Asphalt Traceability | Fait |
 | 4 | Site Diagram | À faire |
 | 5 | Dip Record + Survey Record | À faire |
 | 6 | Quantity & Placement | À faire |

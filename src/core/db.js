@@ -36,9 +36,10 @@
     }));
   }
 
-  const getAllJobs = () => tx('jobs', 'readonly', (s) => s.getAll())
+  // Reads first write any pending autosave, so a screen never shows stale data
+  const getAllJobs = () => flush().then(() => tx('jobs', 'readonly', (s) => s.getAll()))
     .then((jobs) => (jobs || []).map(SL.schema.migrateJob));
-  const getJob = (id) => tx('jobs', 'readonly', (s) => s.get(id))
+  const getJob = (id) => flush().then(() => tx('jobs', 'readonly', (s) => s.get(id)))
     .then((j) => (j ? SL.schema.migrateJob(j) : null));
   const putJob = (job) => tx('jobs', 'readwrite', (s) => s.put(job));
   const deleteJob = (id) => tx('jobs', 'readwrite', (s) => s.delete(id));

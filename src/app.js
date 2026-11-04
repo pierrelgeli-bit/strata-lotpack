@@ -156,11 +156,13 @@
     // Non-blocking warnings (e.g. approval not signed)
     const warnEl = h('div', { class: 'warn', role: 'status' });
     const refreshWarnings = () => {
-      const msgs = Object.values(SL.forms || {}).map((f) => (f.warning ? f.warning(job, shift) : '')).filter(Boolean);
+      const msgs = Object.values(SL.forms || {}).flatMap((f) => [].concat(f.warning ? f.warning(job, shift) : [])).filter(Boolean);
       warnEl.replaceChildren(...msgs.map((m) => h('div', {}, '⚠ ', m)));
       warnEl.hidden = !msgs.length;
     };
     refreshWarnings();
+    // Time-based reminders (2 h readings) refresh every minute while this screen is open
+    const timer = setInterval(() => { if (!warnEl.isConnected) clearInterval(timer); else refreshWarnings(); }, 60000);
 
     const saveSheet = () => {
       SL.db.touch(job, shift);
